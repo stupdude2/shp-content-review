@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHP Website Content Review — Live Collaboration</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#f5f4f0;color:#1a1a18;font-size:14px;line-height:1.6}
+
+/* SYNC STATUS BAR */
+.syncbar{background:#1a1a18;color:#fff;padding:5px 1.25rem;font-size:11.5px;display:flex;align-items:center;gap:10px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0;transition:background .3s}
+.sync-dot.synced{background:#5DCAA5}
+.sync-dot.syncing{background:#EF9F27;animation:pulse 1s infinite}
+.sync-dot.error{background:#E24B4A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sync-label{color:#ccc}
+.sync-users{margin-left:auto;color:#aaa}
+
+/* TOP BAR */
+.topbar{background:#fff;border-bottom:1px solid #e2e0d8;padding:.75rem 1.25rem;position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.topbar h1{font-size:16px;font-weight:600;color:#1a1a18;white-space:nowrap}
+.topbar p{font-size:12px;color:#6b6a65}
+.topbar-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+
+/* IDENTITY EDITOR */
+.identity-row{display:flex;align-items:center;gap:8px}
+.identity-label{font-size:12px;color:#6b6a65;white-space:nowrap}
+.identity-wrap{position:relative}
+.identity-display{display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d3d1c7;border-radius:6px;background:#fff;cursor:pointer;font-size:12.5px;color:#1a1a18;min-width:130px;transition:border-color .15s}
+.identity-display:hover{border-color:#185fa5}
+.identity-display.has-name{border-color:#c0dd97;background:#f7fbf2}
+.identity-display .identity-edit-hint{font-size:11px;color:#a09f9a;margin-left:auto}
+.identity-editor{position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid #d3d1c7;border-radius:8px;padding:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:300;min-width:220px}
+.identity-input{width:100%;font-size:13px;padding:6px 10px;border:1px solid #d3d1c7;border-radius:6px;font-family:inherit;color:#1a1a18;margin-bottom:6px}
+.identity-input:focus{outline:none;border-color:#185fa5;box-shadow:0 0 0 2px rgba(24,95,165,.1)}
+.identity-suggestions{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.identity-suggestion{font-size:11.5px;padding:2px 8px;border-radius:12px;background:#f1efe8;border:1px solid #d3d1c7;cursor:pointer;color:#1a1a18;transition:all .1s;display:inline-flex;align-items:center;gap:4px}
+.identity-suggestion:hover{background:#e6f1fb;border-color:#b5d4f4}
+.identity-suggestion .sug-name{cursor:pointer}
+.identity-suggestion .sug-del{font-size:10px;color:#a09f9a;cursor:pointer;padding:0 1px;line-height:1;border-radius:50%;transition:all .1s}
+.identity-suggestion .sug-del:hover{background:#fcebeb;color:#a32d2d}
+.identity-editor-actions{display:flex;gap:6px}
+.btn-id-save{flex:1;font-size:12px;padding:5px 0;border-radius:6px;cursor:pointer;border:1px solid #185fa5;background:#185fa5;color:#fff;font-family:inherit;font-weight:500}
+.btn-id-save:hover{background:#0c447c}
+.btn-id-cancel{font-size:12px;padding:5px 10px;border-radius:6px;cursor:pointer;border:1px solid #d3d1c7;background:#f1efe8;color:#5f5e5a;font-family:inherit}
+.btn-id-cancel:hover{background:#d3d1c7}
+.identity-avatar{width:20px;height:20px;border-radius:50%;background:#185fa5;color:#fff;font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* STATUS SUMMARY BAR */
+.statusbar{background:#fff;border-bottom:1px solid #e2e0d8;padding:.5rem 1.25rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stat-chip{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:3px 10px;border-radius:20px;cursor:pointer;border:1.5px solid transparent;transition:all .15s;user-select:none}
+.stat-chip.all{background:#f1efe8;color:#5f5e5a;border-color:#d3d1c7}
+.stat-chip.all.active{background:#1a1a18;color:#fff;border-color:#1a1a18}
+.stat-chip.pending{background:#f5f4f0;color:#888780;border-color:#d3d1c7}
+.stat-chip.pending.active{background:#888780;color:#fff}
+.stat-chip.approved{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
+.stat-chip.approved.active{background:#3b6d11;color:#fff}
+.stat-chip.edited{background:#e6f1fb;color:#185fa5;border-color:#b5d4f4}
+.stat-chip.edited.active{background:#185fa5;color:#fff}
+.stat-chip.rejected{background:#fcebeb;color:#a32d2d;border-color:#f7c1c1}
+.stat-chip.rejected.active{background:#a32d2d;color:#fff}
+.stat-chip .count{font-size:11px;background:rgba(0,0,0,.1);border-radius:10px;padding:0 6px;line-height:18px}
+.progress-wrap{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;color:#888780}
+.progress-bar{width:120px;height:6px;background:#e2e0d8;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(to right,#3b6d11,#185fa5);transition:width .3s}
+
+/* LAYOUT */
+.shell{display:flex;min-height:calc(100vh - 115px)}
+.sidebar{width:215px;flex-shrink:0;background:#fff;border-right:1px solid #e2e0d8;overflow-y:auto;position:sticky;top:115px;height:calc(100vh - 115px);padding:.5rem 0 2rem}
+.nav-group{font-size:10px;color:#a09f9a;text-transform:uppercase;letter-spacing:.07em;padding:10px 12px 3px;margin-top:4px}
+.nav-item{padding:6px 12px;cursor:pointer;font-size:12.5px;color:#5f5e5a;border-left:3px solid transparent;display:flex;align-items:center;justify-content:space-between;gap:4px}
+.nav-item:hover{background:#f5f4f0;color:#1a1a18}
+.nav-item.active{background:#f5f4f0;color:#1a1a18;border-left-color:#185fa5;font-weight:500}
+.nav-item.indent{padding-left:22px;font-size:12px}
+.nav-item.lp-item.active{border-left-color:#534AB7}
+.nav-progress{display:flex;gap:2px;align-items:center;flex-shrink:0}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:#e2e0d8}
+.nav-dot.approved{background:#3b6d11}
+.nav-dot.edited{background:#185fa5}
+.nav-dot.rejected{background:#a32d2d}
+
+/* CONTENT */
+.content{flex:1;padding:1.25rem 1.75rem 3rem;max-width:900px}
+.page-header{margin-bottom:1.1rem}
+.page-title{font-size:19px;font-weight:600;color:#1a1a18;margin-bottom:3px}
+.page-subtitle{font-size:12.5px;color:#6b6a65;margin-bottom:3px}
+.page-url a{font-size:12px;color:#185fa5;text-decoration:none}
+.page-url a:hover{text-decoration:underline}
+.lp-note{display:inline-flex;align-items:center;gap:5px;background:#EEEDFE;color:#3C3489;font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:5px;margin-top:5px}
+
+/* SECTION CARDS */
+.section-card{background:#fff;border:1px solid #e2e0d8;border-radius:10px;padding:.9rem 1.1rem;margin-bottom:.85rem}
+.section-card.lp-card{border-color:#CECBF6}
+.section-label{font-size:10px;color:#a09f9a;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.original{font-size:12.5px;color:#5f5e5a;line-height:1.6;background:#f5f4f0;border-radius:6px;padding:8px 11px;border-left:3px solid #d3d1c7;margin-bottom:10px}
+.rec-header{font-size:13px;font-weight:600;color:#1a1a18;margin-bottom:7px}
+
+/* REC ITEMS */
+.rec-item{border:1px solid #e2e0d8;border-radius:8px;padding:.75rem .9rem;margin-bottom:.6rem;transition:border-color .15s,background .15s}
+.rec-item:last-child{margin-bottom:0}
+.rec-item.status-approved{border-color:#c0dd97;background:#f7fbf2}
+.rec-item.status-edited{border-color:#b5d4f4;background:#f2f8fe}
+.rec-item.status-rejected{border-color:#f7c1c1;background:#fef5f5;opacity:.7}
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:500}
+.bs{background:#e6f1fb;color:#185fa5}
+.bm{background:#eaf3de;color:#3b6d11}
+.ba{background:#faeeda;color:#854f0b}
+.bf{background:#f1efe8;color:#5f5e5a;border:1px solid #d3d1c7}
+.blp{background:#EEEDFE;color:#3C3489}
+.rec-row{display:flex;gap:7px;align-items:flex-start;margin-bottom:8px}
+.rec-num{font-size:11px;font-weight:600;color:#a09f9a;min-width:16px;margin-top:2px;flex-shrink:0}
+.rec-text{font-size:12.5px;color:#1a1a18;line-height:1.65;flex:1}
+.rec-text em{color:#185fa5;font-style:normal;font-weight:500}
+.rec-text-edit{width:100%;font-size:12.5px;line-height:1.65;padding:6px 8px;border:1px solid #b5d4f4;border-radius:6px;background:#fff;resize:vertical;min-height:80px;font-family:inherit;color:#1a1a18}
+.rec-text-edit:focus{outline:none;border-color:#185fa5;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+
+/* ACTIONS */
+.action-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.btn{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;padding:4px 10px;border-radius:6px;cursor:pointer;border:1px solid;font-family:inherit;font-weight:500;transition:all .12s}
+.btn-approve{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
+.btn-approve:hover{background:#3b6d11;color:#fff}
+.btn-edit{background:#e6f1fb;color:#185fa5;border-color:#b5d4f4}
+.btn-edit:hover{background:#185fa5;color:#fff}
+.btn-reject{background:#fcebeb;color:#a32d2d;border-color:#f7c1c1}
+.btn-reject:hover{background:#a32d2d;color:#fff}
+.btn-save{background:#185fa5;color:#fff;border-color:#185fa5}
+.btn-save:hover{background:#0c447c}
+.btn-cancel{background:#f1efe8;color:#5f5e5a;border-color:#d3d1c7}
+.btn-cancel:hover{background:#d3d1c7}
+.btn-undo{background:#f1efe8;color:#888780;border-color:#d3d1c7;font-size:11px}
+.btn-undo:hover{background:#888780;color:#fff}
+.status-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:3px 8px;border-radius:5px}
+.status-badge.approved{background:#eaf3de;color:#3b6d11}
+.status-badge.edited{background:#e6f1fb;color:#185fa5}
+.status-badge.rejected{background:#fcebeb;color:#a32d2d}
+
+/* WHO DID THIS */
+.reviewer-tag{font-size:10.5px;background:rgba(0,0,0,.07);border-radius:4px;padding:1px 5px;margin-left:5px;font-style:normal;font-weight:400}
+.reviewer-time{font-size:10px;color:#a09f9a;margin-left:3px}
+
+/* META: ASSIGNEE + COMMENT THREAD */
+.meta-row{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid #f1efe8}
+.assignee-wrap{flex-shrink:0}
+.assignee-select{font-size:11.5px;padding:3px 8px;border:1px solid #d3d1c7;border-radius:6px;background:#fff;color:#1a1a18;font-family:inherit;cursor:pointer}
+.assignee-select:focus{outline:none;border-color:#185fa5}
+.comment-section{flex:1;min-width:200px}
+
+/* Comment thread list */
+.comment-thread{margin-bottom:6px}
+.comment-entry{background:#f5f4f0;border-radius:7px;padding:6px 9px;margin-bottom:5px;position:relative}
+.comment-entry.done{opacity:.55}
+.comment-entry.done .comment-body{text-decoration:line-through;color:#a09f9a}
+.comment-meta{display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap}
+.comment-author{font-size:11px;font-weight:600;color:#1a1a18}
+.comment-time{font-size:10.5px;color:#a09f9a}
+.comment-done-badge{font-size:10px;background:#eaf3de;color:#3b6d11;border-radius:4px;padding:1px 5px;font-weight:500}
+.comment-body{font-size:12px;color:#1a1a18;line-height:1.55;word-break:break-word}
+.comment-body-edit{width:100%;font-size:12px;padding:4px 6px;border:1px solid #b5d4f4;border-radius:5px;font-family:inherit;resize:none;line-height:1.55;color:#1a1a18}
+.comment-body-edit:focus{outline:none;border-color:#185fa5}
+.comment-actions-row{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.btn-cm{font-size:10.5px;padding:2px 8px;border-radius:4px;cursor:pointer;font-family:inherit;border:1px solid;transition:all .1s;background:transparent}
+.btn-cm-done{color:#3b6d11;border-color:#c0dd97}
+.btn-cm-done:hover{background:#eaf3de}
+.btn-cm-done.undone{color:#888780;border-color:#d3d1c7}
+.btn-cm-done.undone:hover{background:#f1efe8}
+.btn-cm-edit{color:#185fa5;border-color:#b5d4f4}
+.btn-cm-edit:hover{background:#e6f1fb}
+.btn-cm-del{color:#a32d2d;border-color:#f7c1c1}
+.btn-cm-del:hover{background:#fcebeb}
+.btn-cm-save{color:#fff;background:#185fa5;border-color:#185fa5;font-weight:500}
+.btn-cm-save:hover{background:#0c447c}
+.btn-cm-cancel{color:#5f5e5a;border-color:#d3d1c7}
+.btn-cm-cancel:hover{background:#f1efe8}
+
+/* New comment composer */
+.comment-composer{display:flex;gap:6px;align-items:flex-start}
+.comment-composer-input{flex:1;font-size:12px;padding:5px 8px;border:1px solid #d3d1c7;border-radius:6px;background:#fff;font-family:inherit;color:#1a1a18;resize:none;min-height:32px;line-height:1.5;transition:border-color .15s}
+.comment-composer-input:focus{outline:none;border-color:#185fa5;box-shadow:0 0 0 2px rgba(24,95,165,.08)}
+.btn-comment-post{font-size:11.5px;padding:5px 12px;border-radius:6px;cursor:pointer;border:1px solid #185fa5;background:#185fa5;color:#fff;font-family:inherit;font-weight:500;white-space:nowrap;flex-shrink:0}
+.btn-comment-post:hover{background:#0c447c}
+.btn-comment-post:disabled{opacity:.4;cursor:default}
+.comment-hint-text{font-size:10.5px;color:#a09f9a;margin-top:3px}
+
+/* EXPORT BUTTON */
+.btn-export{background:#1a1a18;color:#fff;border:1px solid #1a1a18;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:500;display:inline-flex;align-items:center;gap:5px}
+.btn-export:hover{background:#2c2c2a}
+
+/* FILTER NOTE */
+.filter-note{font-size:12px;color:#888780;padding:.5rem 0 .75rem;display:none}
+.filter-note.visible{display:block}
+
+/* LOADING OVERLAY */
+.loading-overlay{position:fixed;inset:0;background:rgba(245,244,240,.9);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.loading-spinner{width:36px;height:36px;border:3px solid #e2e0d8;border-top-color:#185fa5;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:#5f5e5a}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:#fff;border-radius:12px;padding:1.5rem;max-width:700px;width:100%;max-height:85vh;overflow-y:auto;position:relative}
+.modal h2{font-size:17px;font-weight:600;margin-bottom:.25rem}
+.modal p{font-size:13px;color:#6b6a65;margin-bottom:1rem}
+.modal-close{position:absolute;top:1rem;right:1rem;font-size:18px;cursor:pointer;color:#888780;background:none;border:none}
+.export-section{margin-bottom:1rem}
+.export-section h3{font-size:13px;font-weight:600;padding:.4rem .6rem;border-radius:5px;margin-bottom:.4rem}
+.export-section h3.approved{background:#eaf3de;color:#3b6d11}
+.export-section h3.edited{background:#e6f1fb;color:#185fa5}
+.export-item{font-size:12.5px;padding:.5rem .75rem;border-left:3px solid #e2e0d8;margin-bottom:.4rem;background:#f9f8f6;border-radius:0 5px 5px 0}
+.export-item .ei-page{font-size:10.5px;color:#888780;margin-bottom:2px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.export-item .ei-section{font-size:11px;color:#6b6a65;margin-bottom:3px}
+.export-item .ei-text{font-size:12.5px;color:#1a1a18}
+.export-item .ei-text em{color:#185fa5;font-style:normal;font-weight:500}
+.export-item .ei-meta{margin-top:4px;font-size:11px;color:#888780}
+.export-item .ei-comment{font-style:italic;color:#5f5e5a}
+.btn-copy{font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit;background:#f1efe8;border:1px solid #d3d1c7;color:#1a1a18;margin-top:.75rem}
+.btn-copy:hover{background:#d3d1c7}
+.empty-export{font-size:13px;color:#888780;padding:1rem;text-align:center;background:#f5f4f0;border-radius:8px}
+
+/* SETUP BANNER */
+.setup-banner{background:#faeeda;border:1px solid #EF9F27;border-radius:8px;padding:.85rem 1rem;margin-bottom:1rem;font-size:13px;color:#633806;display:none}
+.setup-banner.visible{display:block}
+.setup-banner strong{display:block;margin-bottom:4px;font-size:13.5px}
+.setup-banner code{background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px;font-size:12px;font-family:monospace}
+
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:#d3d1c7;border-radius:4px}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">Connecting to shared workspace...</div>
+</div>
+
+<!-- Sync status bar -->
+<div class="syncbar">
+  <div class="sync-dot" id="sync-dot"></div>
+  <span class="sync-label" id="sync-label">Initializing...</span>
+  <span class="sync-users" id="sync-users"></span>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div>
+    <h1>SHP Website Content Review</h1>
+    <p>Live collaboration — changes sync instantly across all users</p>
+  </div>
+  <div class="topbar-right">
+    <div class="identity-row">
+      <span class="identity-label">You are:</span>
+      <div class="identity-wrap" id="identity-wrap">
+        <div class="identity-display" id="identity-display" onclick="openIdentityEditor()">
+          <span id="identity-name-label">Set your name</span>
+          <span class="identity-edit-hint">✎</span>
+        </div>
+        <div class="identity-editor" id="identity-editor" style="display:none">
+          <input type="text" class="identity-input" id="identity-input" placeholder="Enter your name..." maxlength="40"
+            onkeydown="handleIdentityKey(event)"
+            oninput="updateIdentitySuggestions(this.value)" />
+          <div class="identity-suggestions" id="identity-suggestions"></div>
+          <div class="identity-editor-actions">
+            <button class="btn-id-save" onclick="confirmIdentity()">Save</button>
+            <button class="btn-id-cancel" onclick="closeIdentityEditor()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-export" onclick="openExport()">&#8595; Export action list</button>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="statusbar" id="statusbar">
+  <div class="stat-chip all active" onclick="filterStatus('all',this)">All <span class="count" id="cnt-all">0</span></div>
+  <div class="stat-chip pending" onclick="filterStatus('pending',this)">Pending <span class="count" id="cnt-pending">0</span></div>
+  <div class="stat-chip approved" onclick="filterStatus('approved',this)">Approved <span class="count" id="cnt-approved">0</span></div>
+  <div class="stat-chip edited" onclick="filterStatus('edited',this)">Edited <span class="count" id="cnt-edited">0</span></div>
+  <div class="stat-chip rejected" onclick="filterStatus('rejected',this)">Rejected <span class="count" id="cnt-rejected">0</span></div>
+  <div class="progress-wrap">
+    <span id="progress-label">0% reviewed</span>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content" id="content">
+    <div class="setup-banner" id="setup-banner">
+      <strong>⚠️ JSONBin not configured — running in local-only mode</strong>
+      To enable live collaboration, open this file in a text editor, find <code>JSONBIN_API_KEY</code> near the top of the script, and replace <code>YOUR_API_KEY_HERE</code> with your key from <a href="https://jsonbin.io" target="_blank">jsonbin.io</a>. Then reload the page.
+    </div>
+    <div class="filter-note" id="filter-note"></div>
+    <div id="page-content"></div>
+  </div>
+</div>
+
+<!-- Export modal -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="if(event.target===this)closeExport()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeExport()">✕</button>
+    <h2>Action list export</h2>
+    <p>All approved and edited recommendations — ready to share with your web team.</p>
+    <div id="export-content"></div>
+    <button class="btn-copy" onclick="copyExport()">Copy all to clipboard</button>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG — PASTE YOUR JSONBIN API KEY BELOW ───────────────────────────────
+var JSONBIN_API_KEY = '$2a$10$hxyg9XVVApA/.Oork0FUKu/qQ9MHLguW2esm6o.nE30xK2rc5Gnru';
+var BIN_ID = ''; // Leave blank — auto-created on first run, then stored in localStorage
+// ─────────────────────────────────────────────────────────────────────────────
+
+var STATE = {};          // shared state object {recId: {status,text,comment,assignee,reviewedBy,reviewedAt}}
+var currentFilter = 'all';
+var currentPage = 'home';
+var currentUser = '';
+var syncInterval = null;
+var lastSyncHash = '';
+var isConfigured = JSONBIN_API_KEY !== 'YOUR_API_KEY_HERE';
+
+// ─── JSONBIN API ─────────────────────────────────────────────────────────────
+function getBinId(){
+  var stored = localStorage.getItem('shp_bin_id');
+  if(stored) return stored;
+  return BIN_ID || '';
+}
+function setBinId(id){
+  BIN_ID = id;
+  localStorage.setItem('shp_bin_id', id);
+}
+
+async function createBin(){
+  setSyncStatus('syncing','Creating shared workspace...');
+  var resp = await fetch('https://api.jsonbin.io/v3/b', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Name':'SHP-Content-Review','X-Bin-Private':'false'},
+    body: JSON.stringify({state:{}, version:1})
+  });
+  var data = await resp.json();
+  if(data.metadata && data.metadata.id){
+    setBinId(data.metadata.id);
+    return data.metadata.id;
+  }
+  throw new Error('Could not create bin');
+}
+
+async function readBin(){
+  var id = getBinId();
+  if(!id) return null;
+  var resp = await fetch('https://api.jsonbin.io/v3/b/'+id+'/latest', {
+    headers:{'X-Master-Key':JSONBIN_API_KEY}
+  });
+  if(!resp.ok) return null;
+  var data = await resp.json();
+  return data.record || null;
+}
+
+async function writeBin(stateObj){
+  var id = getBinId();
+  if(!id) id = await createBin();
+  var resp = await fetch('https://api.jsonbin.io/v3/b/'+id, {
+    method:'PUT',
+    headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY},
+    body: JSON.stringify({state: stateObj, version:1})
+  });
+  if(!resp.ok) throw new Error('Write failed');
+  return true;
+}
+
+// ─── SYNC LOGIC ──────────────────────────────────────────────────────────────
+function setSyncStatus(status, label){
+  var dot = document.getElementById('sync-dot');
+  var lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot '+(status||'');
+  lbl.textContent = label || '';
+}
+
+async function initSync(){
+  if(!isConfigured){
+    document.getElementById('setup-banner').classList.add('visible');
+    loadLocalFallback();
+    setSyncStatus('error','Local mode — configure JSONBin for live collaboration');
+    document.getElementById('loading').style.display = 'none';
+    return;
+  }
+
+  try {
+    document.getElementById('loading-text').textContent = 'Loading shared workspace...';
+    setSyncStatus('syncing','Connecting...');
+
+    var id = getBinId();
+    if(!id){
+      await createBin();
+    }
+
+    var remote = await readBin();
+    if(remote && remote.state){
+      STATE = remote.state;
+      lastSyncHash = JSON.stringify(STATE);
+    }
+
+    setSyncStatus('synced','Synced · '+new Date().toLocaleTimeString());
+    document.getElementById('loading').style.display = 'none';
+
+    // Poll every 8 seconds for changes from other users
+    syncInterval = setInterval(pollForChanges, 8000);
+
+  } catch(e){
+    console.error('Sync init error:', e);
+    setSyncStatus('error','Sync error — working locally');
+    loadLocalFallback();
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+async function pollForChanges(){
+  if(!isConfigured) return;
+  try {
+    var remote = await readBin();
+    if(!remote || !remote.state) return;
+    var remoteHash = JSON.stringify(remote.state);
+    if(remoteHash !== lastSyncHash){
+      // Merge: remote wins for keys we haven't locally changed since last sync
+      STATE = remote.state;
+      lastSyncHash = remoteHash;
+      setSyncStatus('synced','Updated · '+new Date().toLocaleTimeString());
+      // Re-render current page to show changes
+      var pc = document.getElementById('page-content');
+      pc.innerHTML = renderPage(currentPage);
+      if(currentFilter !== 'all') applyFilter();
+      updateCounts();
+      updateNavDots();
+    }
+  } catch(e){ /* silent poll failure */ }
+}
+
+async function pushState(){
+  if(!isConfigured){ saveLocalFallback(); return; }
+  setSyncStatus('syncing','Saving...');
+  try {
+    await writeBin(STATE);
+    lastSyncHash = JSON.stringify(STATE);
+    setSyncStatus('synced','Saved · '+new Date().toLocaleTimeString());
+  } catch(e){
+    setSyncStatus('error','Save failed — retrying...');
+    setTimeout(pushState, 3000);
+  }
+}
+
+function saveLocalFallback(){ try{ localStorage.setItem('shp_local_state', JSON.stringify(STATE)); }catch(e){} }
+function loadLocalFallback(){ try{ var s=localStorage.getItem('shp_local_state'); if(s) STATE=JSON.parse(s); }catch(e){} }
+
+// ─── IDENTITY ────────────────────────────────────────────────────────────────
+var TEAM = ['Sarah M.','James T.','Priya K.','Chris L.','Dana R.'];
+
+function loadIdentity(){
+  loadTeam(); // merge any previously saved names into TEAM before anything else
+  var saved = localStorage.getItem('shp_user');
+  if(saved && saved.trim()){
+    currentUser = saved.trim();
+    renderIdentityDisplay();
+  } else {
+    // First visit — open editor immediately after a short delay
+    setTimeout(openIdentityEditor, 600);
+  }
+}
+
+function renderIdentityDisplay(){
+  var disp = document.getElementById('identity-display');
+  var lbl  = document.getElementById('identity-name-label');
+  if(!disp || !lbl) return;
+  if(currentUser){
+    var initials = currentUser.split(' ').map(function(w){ return w[0]||''; }).join('').toUpperCase().slice(0,2);
+    lbl.innerHTML = '<span class="identity-avatar">'+initials+'</span> '+escapeHtml(currentUser);
+    disp.classList.add('has-name');
+  } else {
+    lbl.innerHTML = 'Set your name';
+    disp.classList.remove('has-name');
+  }
+}
+
+function openIdentityEditor(){
+  var editor = document.getElementById('identity-editor');
+  var input  = document.getElementById('identity-input');
+  if(!editor || !input) return;
+  editor.style.display = 'block';
+  input.value = currentUser || '';
+  input.focus();
+  input.select();
+  updateIdentitySuggestions(input.value);
+  // Close on outside click
+  setTimeout(function(){
+    document.addEventListener('click', outsideIdentityClick);
+  }, 10);
+}
+
+function outsideIdentityClick(e){
+  var wrap = document.getElementById('identity-wrap');
+  if(wrap && !wrap.contains(e.target)){
+    closeIdentityEditor();
+    document.removeEventListener('click', outsideIdentityClick);
+  }
+}
+
+function closeIdentityEditor(){
+  var editor = document.getElementById('identity-editor');
+  if(editor) editor.style.display = 'none';
+  document.removeEventListener('click', outsideIdentityClick);
+}
+
+function confirmIdentity(){
+  var input = document.getElementById('identity-input');
+  var val = (input ? input.value : '').trim();
+  if(!val){ input && input.focus(); return; }
+  setIdentity(val);
+  closeIdentityEditor();
+  // Refresh the page's assignee dropdowns so the new name appears there too
+  var pc = document.getElementById('page-content');
+  if(pc) pc.innerHTML = renderPage(currentPage);
+  if(currentFilter !== 'all') applyFilter();
+}
+
+function handleIdentityKey(e){
+  if(e.key === 'Enter'){ e.preventDefault(); confirmIdentity(); }
+  if(e.key === 'Escape'){ closeIdentityEditor(); }
+}
+
+function loadTeam(){
+  // Eagerly merge any saved names from localStorage into TEAM
+  try{
+    var stored = localStorage.getItem('shp_team');
+    if(stored){
+      var arr = JSON.parse(stored);
+      arr.forEach(function(n){ if(n && TEAM.indexOf(n) === -1) TEAM.push(n); });
+    }
+  } catch(e){}
+}
+
+function setIdentity(val){
+  var name = val.trim();
+  if(!name) return;
+  // Add to TEAM list if not already there
+  if(TEAM.indexOf(name) === -1) TEAM.push(name);
+  // Always persist the full list back
+  localStorage.setItem('shp_team', JSON.stringify(TEAM));
+  currentUser = name;
+  localStorage.setItem('shp_user', currentUser);
+  renderIdentityDisplay();
+}
+
+function updateIdentitySuggestions(val){
+  var container = document.getElementById('identity-suggestions');
+  if(!container) return;
+  var lc = (val||'').toLowerCase();
+  var shown = TEAM.filter(function(m){ return !lc || m.toLowerCase().indexOf(lc) !== -1; });
+  container.innerHTML = shown.length
+    ? shown.map(function(m){
+        var safeName = escapeHtml(m);
+        return '<span class="identity-suggestion">'
+          + '<span class="sug-name" onclick="pickSuggestion(\''+safeName+'\')">' + safeName + '</span>'
+          + '<span class="sug-del" title="Remove from list" onclick="deleteUser(\''+safeName+'\',event)">✕</span>'
+          + '</span>';
+      }).join('')
+    : '<span style="font-size:11px;color:#a09f9a">No saved names yet — type one above</span>';
+}
+
+function deleteUser(name, e){
+  e.stopPropagation();
+  var idx = TEAM.indexOf(name);
+  if(idx !== -1) TEAM.splice(idx, 1);
+  localStorage.setItem('shp_team', JSON.stringify(TEAM));
+  // If this was the current user, clear identity
+  if(currentUser === name){
+    currentUser = '';
+    localStorage.removeItem('shp_user');
+    renderIdentityDisplay();
+  }
+  // Re-render suggestions with current input value
+  var input = document.getElementById('identity-input');
+  updateIdentitySuggestions(input ? input.value : '');
+  // Re-render current page to update assignee dropdowns
+  var pc = document.getElementById('page-content');
+  if(pc) pc.innerHTML = renderPage(currentPage);
+  if(currentFilter !== 'all') applyFilter();
+}
+
+// ─── STATE HELPERS ───────────────────────────────────────────────────────────
+function recId(pageId, si, ri){ return pageId+'__s'+si+'__r'+ri; }
+function getState(id, defaultText){
+  if(!STATE[id]) STATE[id] = {status:'pending', text:defaultText, comments:[], assignee:'Unassigned', reviewedBy:'', reviewedAt:''};
+  // Migrate old single comment string to array
+  if(STATE[id].comment !== undefined && !STATE[id].comments){
+    STATE[id].comments = STATE[id].comment ? [{id:'c0',text:STATE[id].comment,author:'',time:'',done:false}] : [];
+    delete STATE[id].comment;
+  }
+  if(!STATE[id].comments) STATE[id].comments = [];
+  return STATE[id];
+}
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+var NAV=[
+  {group:"Main pages"},
+  {id:"home",label:"Home"},
+  {id:"about",label:"About us"},
+  {id:"results",label:"Results &amp; testimonials"},
+  {id:"contact",label:"Contact sales"},
+  {group:"Home health"},
+  {id:"hh",label:"Overview"},
+  {id:"oasis",label:"OASIS scrubbing",indent:true},
+  {id:"hhdata",label:"Data analytics &amp; benchmarking",indent:true},
+  {id:"hhcahps",label:"HHCAHPS surveys",indent:true},
+  {id:"shpbest_hh",label:"SHPBest™ awards",indent:true},
+  {id:"lp_hh",label:"Landing page",indent:true,lp:true},
+  {group:"Hospice"},
+  {id:"hospice",label:"Overview"},
+  {id:"hqrp",label:"HQRP / HOPE &amp; QAPI",indent:true},
+  {id:"hospdata",label:"Data analytics &amp; benchmarking",indent:true},
+  {id:"cahps",label:"CAHPS hospice",indent:true},
+  {id:"shpbest_hosp",label:"SHPBest™ awards",indent:true},
+  {id:"lp_hospice",label:"Landing page",indent:true,lp:true},
+  {group:"Skilled nursing"},
+  {id:"snf",label:"Overview (IntelliLogix)"},
+  {id:"mds",label:"MDS scrubber",indent:true},
+  {id:"starratings",label:"Star ratings",indent:true},
+  {id:"survey",label:"Survey preparation",indent:true},
+  {id:"pbj",label:"PBJ manager",indent:true},
+  {id:"coreq",label:"CoreQ survey",indent:true},
+  {id:"casper",label:"CASPER manager",indent:true},
+  {id:"lp_snf",label:"Landing page",indent:true,lp:true},
+  {group:"Hospitals / ACOs"},
+  {id:"carestat",label:"CareStat overview"},
+  {id:"rehospital",label:"Managing rehospitalizations",indent:true},
+  {id:"network",label:"Post-acute network mgmt",indent:true},
+  {id:"lp_carestat",label:"Landing page",indent:true,lp:true},
+  {group:"Other"},
+  {id:"infusion",label:"Home infusion / Other"},
+];
+
+function b(t){return{seo:'<span class="badge bs">SEO</span>',mission:'<span class="badge bm">Mission</span>',ai:'<span class="badge ba">AI language</span>',flow:'<span class="badge bf">Flow</span>',lp:'<span class="badge blp">LP-specific</span>'}[t]||'';}
+
+var PAGES={
+home:{title:"Home page",url:"https://www.shpdata.com",sections:[
+  {l:"H1 headline",o:"Performance Improvement",r:[
+    {tags:["seo"],t:"Zero keyword value. Replace with: <em>\"Real-Time Analytics &amp; Benchmarking for Post-Acute Care | SHP\"</em> — leads with primary phrases buyers actually search."},
+    {tags:["mission"],t:"Add a one-sentence sub-headline: <em>\"We improve healthcare performance and quality of care through the power of data.\"</em> — the mission statement verbatim, front and center."}
+  ]},
+  {l:"Hero description paragraph",o:"Strategic Healthcare Programs improves quality and optimizes performance of home health agencies, hospices, skilled nursing facilities and hospitals by providing real-time actionable analytics, benchmarks and dashboards.",r:[
+    {tags:["mission","flow"],t:"Lead with purpose: <em>\"Driven by a passion to improve healthcare, SHP turns your clinical and operational data into the real-time intelligence your teams need to act — not react.\"</em>"},
+    {tags:["ai"],t:"Add an AI hook: <em>\"Including AI-powered predictive models purpose-built for post-acute care — refined across 15+ years of real-world data.\"</em>"}
+  ]},
+  {l:"Solution tiles",o:"Improve quality &amp; ratings / Maximize revenue / Improve documentation accuracy [per tile]",r:[
+    {tags:["flow","seo"],t:"Reframe as outcomes: e.g. Home Health → <em>\"Catch documentation errors before they cost you. Benchmark against 5,000+ agencies in real time.\"</em>"},
+    {tags:["mission"],t:"Close each tile with a micro-mission line: <em>\"Better data. Better care.\"</em>"}
+  ]},
+  {l:"\"Why SHP?\" feature strip",o:"Real-time Data / Automatic Data Interfaces / Detailed Drilldowns / Largest Benchmarks / Actionable Insights",r:[
+    {tags:["seo","flow"],t:"Plain text chips carry no SEO weight. Convert to short icon-card paragraphs — one sentence each — to make content indexable."},
+    {tags:["ai"],t:"Add a 6th item: <em>\"AI-Powered Predictive Intelligence\"</em> linking to predictive model detail."}
+  ]},
+  {l:"Stat bar (missing from homepage)",o:"98% retention, 7,700+ providers, 93M OASIS assessments appear on About page only.",r:[
+    {tags:["flow","seo"],t:"Move these to the homepage: <em>\"7,700+ providers · 98% renewal rate · 93M OASIS assessments reviewed\"</em> — your strongest credibility signals invisible to first-time visitors."}
+  ]},
+  {l:"Testimonials section",o:"Two testimonials shown; link to results page.",r:[
+    {tags:["mission"],t:"Frame with: <em>\"Our mission is to improve healthcare through data. Here's what that looks like in practice.\"</em>"},
+    {tags:["seo"],t:"Add schema markup (Review/AggregateRating) — can generate star ratings in Google search results."}
+  ]}
+]},
+about:{title:"About us / Company",url:"https://www.shpdata.com/about-us",sections:[
+  {l:"H1",o:"Performance improvement software with real-time data",r:[
+    {tags:["seo","mission"],t:"Replace with: <em>\"SHP: Improving Healthcare Performance Through the Power of Data\"</em> — echoes the mission statement precisely."}
+  ]},
+  {l:"Sub-headline",o:"SHP tells you where you can improve and how you compare to the competition, in real-time.",r:[
+    {tags:["mission","flow"],t:"Lead with purpose: <em>\"We believe better data leads to better care. For nearly 30 years, SHP has helped post-acute organizations turn clinical and operational data into the actionable intelligence that improves patient outcomes.\"</em>"}
+  ]},
+  {l:"\"Experience matters\" section",o:"Two decades ago we pioneered real-time performance measurement in healthcare...",r:[
+    {tags:["ai"],t:"Add: <em>\"SHP's suite of AI-powered predictive models — including hospitalization risk scoring, fall risk detection, and visit forecasting — reflects 15+ years of post-acute data refined into machine-learning tools.\"</em>"},
+    {tags:["mission"],t:"Close with: <em>\"Our goal: to become the leading source of healthcare analytics and benchmarking data in the industry — using technology as the bridge between data and better care.\"</em>"}
+  ]},
+  {l:"Stats block",o:"93MM OASIS assessments since 2020 / 29MM patients surveyed / 9MM hospice episodes",r:[
+    {tags:["flow"],t:"These numbers are buried mid-page. Move them to a prominent visual band near the top."},
+    {tags:["mission"],t:"Add context: <em>\"Behind every number is a patient and a care team. SHP exists to make sure the data driving those decisions is accurate, timely, and actionable.\"</em>"}
+  ]},
+  {l:"\"We provide value to you daily\" bullets",o:"Transform clinical and financial data... / Harness volumes of data... / Leverage benchmark database...",r:[
+    {tags:["flow","seo"],t:"Rewrite as outcome statements: <em>\"Eliminate manual data collection — SHP interfaces with 60+ EHR vendors to deliver your data automatically every day.\"</em>"}
+  ]}
+]},
+results:{title:"Results &amp; testimonials",url:"https://www.shpdata.com/results",sections:[
+  {l:"H1 &amp; intro",o:"SHP solutions achieve real results for customers",r:[
+    {tags:["seo","mission"],t:"Reframe: <em>\"Data That Improves Care: Customer Results\"</em> with sub-headline: <em>\"SHP's mission is to improve healthcare quality through data. These are the outcomes our customers achieve.\"</em>"},
+    {tags:["seo"],t:"Add keyword-rich intro naming specific outcomes: star ratings improvements, reduced rehospitalizations, documentation accuracy gains."}
+  ]},
+  {l:"Case studies",o:"Butte Home Health, NVNA, CNHC — brief blurbs with 'read more' links.",r:[
+    {tags:["flow","seo"],t:"Add a callout stat to each card — e.g. <em>\"Achieved consistent 5-star ratings across 4 consecutive reporting periods.\"</em>"},
+    {tags:["ai"],t:"If any case study workflows involved predictive models, add an 'AI-powered' badge to those cards."}
+  ]},
+  {l:"Testimonials section",o:"Long-form quotes collapsed by default.",r:[
+    {tags:["flow"],t:"Add 3 featured pull-quotes at full visibility before the collapse list."},
+    {tags:["mission"],t:"Add a bridge line: <em>\"Better data leads to better care. Here's what that means to the people who use SHP every day.\"</em>"}
+  ]}
+]},
+contact:{title:"Contact sales",url:"https://www.shpdata.com/contact-sales",sections:[
+  {l:"H1",o:"Learn more and take the first step toward improving your quality and performance",r:[
+    {tags:["seo"],t:"Recommended: <em>\"Request a Demo | SHP Healthcare Analytics &amp; Benchmarking Software\"</em>"},
+    {tags:["mission"],t:"Add mission sub-headline: <em>\"We're driven by a passion to help healthcare organizations improve through data. Let's talk about what that looks like for yours.\"</em>"}
+  ]},
+  {l:"Form area intro copy",o:"For sales inquiries please fill out the form below, or call / email us.",r:[
+    {tags:["flow"],t:"Replace with: <em>\"Tell us about your organization and we'll show you exactly how SHP can help — with a personalized demo tailored to your care setting and priorities.\"</em>"},
+    {tags:["lp"],t:"Add 3 quick trust signals above the form: 98% renewal rate, NPS 90+, and 7,700+ providers."}
+  ]},
+  {l:"Testimonial",o:"\"SHP Solutions for Home Health Agencies is well worth the money!\" — Sarah Claycomb",r:[
+    {tags:["flow"],t:"Add 2–3 short quotes from different care settings (hospice, SNF, hospital) to serve the full range of buyers landing on this page."},
+    {tags:["mission"],t:"Lead at least one testimonial with a patient care outcome, not just ROI."}
+  ]},
+  {l:"\"Why SHP?\" strip",o:"Real-Time Data / Automatic Data Interfaces / Detailed Drilldowns / Largest Benchmarks / Actionable Insights",r:[
+    {tags:["flow","lp"],t:"On a conversion page, replace with a 'What you'll see in your demo' section — specific, outcome-oriented bullets that set expectations and increase form completion rates."}
+  ]}
+]},
+hh:{title:"Home health — overview",url:"https://www.shpdata.com/home-health",sections:[
+  {l:"H1",o:"A better way to manage performance",r:[
+    {tags:["seo"],t:"No keyword value. Replace with: <em>\"Home Health Analytics &amp; Performance Software | SHP for Agencies\"</em>"}
+  ]},
+  {l:"Lead paragraph",o:"SHP for Agencies is a web-based, automated, real-time data solution...",r:[
+    {tags:["mission","flow"],t:"Lead with care outcome: <em>\"Improving home health quality starts with knowing where you stand — in real time. SHP for Agencies puts your clinical, operational, and financial data to work so your team can focus on what matters most: patient outcomes.\"</em>"},
+    {tags:["ai"],t:"Add: <em>\"SHP's AI-powered predictive models analyze visit patterns and patient risk factors to surface opportunities for earlier intervention.\"</em>"}
+  ]},
+  {l:"Feature tiles",o:"Performance Improvement / Automated Data Collection / Best-in-Industry Benchmarking / Centralized Reporting",r:[
+    {tags:["flow","seo"],t:"Add one sentence of context per tile. Benchmarking: <em>\"SHP's database covers more than half of all CCNs in Care Compare HHCAHPS — the largest in the industry.\"</em>"},
+    {tags:["ai"],t:"Add a 5th tile: <em>\"Predictive Intelligence — AI-powered visit forecasting and hospitalization risk scoring.\"</em>"}
+  ]},
+  {l:"NPS / support section",o:"98% retention rate... NPS of 90+ for the past four years...",r:[
+    {tags:["mission","flow"],t:"<em>\"A Net Promoter Score of 90+ isn't just a number — it reflects our commitment to being a true partner in improving your performance, not just a software vendor.\"</em>"}
+  ]}
+]},
+oasis:{title:"OASIS scrubbing",url:"https://www.shpdata.com/home-health/oasis-scrubbing",sections:[
+  {l:"H1",o:"OASIS review software It's kind of our thing.",r:[
+    {tags:["seo"],t:"Move personality to sub-headline. H1: <em>\"OASIS Scrubbing Software for Home Health Agencies | SHP\"</em>"},
+    {tags:["flow"],t:"Keep current text as sub-headline: <em>\"OASIS scrubbing? It's kind of our thing.\"</em>"}
+  ]},
+  {l:"Lead paragraph",o:"Now an industry-standard term, we coined the phrase 'OASIS scrubbing'...",r:[
+    {tags:["mission","flow"],t:"Add mission bridge: <em>\"We built the first OASIS scrubbing tool because documentation accuracy isn't just a compliance issue — it determines whether your patients get the care they need and your agency gets paid fairly for providing it.\"</em>"},
+    {tags:["seo"],t:"Add 'home health documentation accuracy' or 'OASIS error detection' naturally in the first paragraph."}
+  ]},
+  {l:"Error type icon grid (8 categories, image-only)",o:"Diagnosis coding errors / OASIS documentation errors / Revenue alerts / Process measures / Case-mix weights / HHRG variances / Clinical outcomes / Risk-adjustment accuracy",r:[
+    {tags:["seo"],t:"All 8 categories appear to be image-only. Add text labels and one-line descriptions per category — currently invisible to Google."},
+    {tags:["flow"],t:"Consider converting the icon grid to an accordion or card layout with explanatory sentences."}
+  ]},
+  {l:"Education / staff development section",o:"Our scrubbing tools go beyond fixing documentation errors by providing educational support...",r:[
+    {tags:["mission"],t:"<em>\"More accurate OASIS documentation means better risk adjustment, better quality scores, and ultimately better care plans. SHP helps your clinicians get it right the first time — and improve over time.\"</em>"}
+  ]}
+]},
+hhdata:{title:"Home health — data analytics &amp; benchmarking",url:"https://www.shpdata.com/home-health/data-analytics-benchmarking",sections:[
+  {l:"H1",o:"Improve your home health agency's quality and star-ratings with real-time data",r:[
+    {tags:["seo"],t:"Minor improvement: <em>\"Improve Home Health Quality &amp; Star Ratings with Real-Time Analytics | SHP\"</em>"}
+  ]},
+  {l:"Lead paragraph",o:"Our secret to helping you improve quality? Real-time data.",r:[
+    {tags:["mission"],t:"Add: <em>\"Because we believe the path to better healthcare runs through better data — and we've been proving it for nearly 30 years.\"</em>"},
+    {tags:["ai"],t:"Add: <em>\"SHP also includes AI-powered predictive analytics that continuously analyze your patient data to surface hospitalization risk and visit demand forecasts.\"</em>"}
+  ]},
+  {l:"Report category grid (image-only)",o:"Images of report types: Patient demographic &amp; quality / Symptom control / National &amp; state benchmarks / KPIs / HQRP suite / Scorecard suite",r:[
+    {tags:["seo","flow"],t:"Report names appear to be embedded in images only. Add text labels and one-line descriptions beneath each — currently invisible to Google."}
+  ]},
+  {l:"Testimonial",o:"\"Using SHP gives us real-time data. It's not delayed...\" — Butte Home Health &amp; Hospice",r:[
+    {tags:["flow"],t:"Add a second testimonial focused on quality improvement outcomes, not just data access."}
+  ]}
+]},
+hhcahps:{title:"HHCAHPS surveys",url:"https://www.shpdata.com/home-health/hhcahps-surveys",sections:[
+  {l:"Overall page assessment",o:"Page focuses on HHCAHPS survey administration and benchmarking.",r:[
+    {tags:["seo"],t:"H1 should target: <em>\"HHCAHPS Survey Administration &amp; Benchmarking | SHP for Home Health\"</em>"},
+    {tags:["mission"],t:"Add intro: <em>\"Patient satisfaction surveys are only valuable if they drive action. SHP's HHCAHPS solution gives you the real-time benchmarks to turn survey responses into targeted performance improvements.\"</em>"},
+    {tags:["ai"],t:"If SHP applies trend detection: <em>\"SHP's analytics automatically surface trends in patient satisfaction scores — highlighting care areas and individual clinicians where coaching will have the greatest impact.\"</em>"},
+    {tags:["flow"],t:"Ensure a clear CTA is visible above the fold — HHCAHPS buyers often arrive with a specific compliance need."}
+  ]}
+]},
+shpbest_hh:{title:"SHPBest™ awards — home health",url:"https://www.shpdata.com/home-health/shpbest-hhcahps",sections:[
+  {l:"Overall page assessment",o:"Page describes SHPBest™ award program for top-performing home health agencies on HHCAHPS.",r:[
+    {tags:["seo"],t:"Target: <em>\"SHPBest™ Award | Top Home Health HHCAHPS Performance Recognition\"</em>"},
+    {tags:["mission"],t:"<em>\"SHPBest™ exists because we believe organizations committed to quality deserve recognition — and because public recognition of excellence raises the bar for the entire industry.\"</em>"},
+    {tags:["flow"],t:"Add award criteria and eligibility requirements near the top."}
+  ]}
+]},
+lp_hh:{title:"Home health — landing page",url:"https://www.shpdata.com/lp/home-health",lp:true,subtitle:"Demo request page for home health buyers",sections:[
+  {l:"Hero image / headline",o:"'Nearly 5,000+ Home Health Agencies use SHP...' — in image only, not live H1 text",r:[
+    {tags:["seo","lp"],t:"This stat should be live H1 text: <em>\"Nearly 5,000 Home Health Agencies Trust SHP to Improve Quality &amp; Ratings\"</em>"}
+  ]},
+  {l:"Benefit bullet list",o:"Maximize reimbursement / Navigate VBP / Improve quality &amp; star ratings / Optimize care plans with visit predictions / Increase referrals",r:[
+    {tags:["lp","flow"],t:"Reorder by buyer urgency and expand the most compelling bullet: <em>\"Optimize care plans with AI-powered visit predictions that surface at-risk patients before costly hospitalizations occur.\"</em>"},
+    {tags:["ai"],t:"Expand the visit predictions bullet to use AI language explicitly."},
+    {tags:["mission"],t:"Add closing line: <em>\"Driven by a passion to improve healthcare through data — for nearly 30 years.\"</em>"}
+  ]},
+  {l:"\"Being an SHP customer\" section",o:"Automated interfaces with 40+ software vendors / Customizable dashboards / Real-time benchmarking",r:[
+    {tags:["lp","seo"],t:"'40+ software vendors' is outdated — update to 60+ to match the rest of the site."},
+    {tags:["lp"],t:"Add: <em>\"A dedicated Customer Manager for personalized onboarding and ongoing support.\"</em>"}
+  ]},
+  {l:"Testimonials (2 of 3 are identical)",o:"Testimonials 2 and 3 are the same quote — 'As our Performance Improvement Committee focuses...'",r:[
+    {tags:["lp","flow"],t:"Critical error: Testimonials 2 and 3 are identical. Replace with two distinct quotes from different customers."},
+    {tags:["lp"],t:"None of the quotes include attribution (name, title, organization). Adding this significantly increases credibility on a conversion page."}
+  ]},
+  {l:"Form intro copy",o:"Fill out the form below to receive a free demo. We look forward to speaking with you.",r:[
+    {tags:["lp","flow"],t:"Replace with: <em>\"Tell us about your agency and we'll show you exactly how SHP can help — a personalized demo, no commitment required.\"</em>"},
+    {tags:["lp"],t:"Add a 'what to expect' note: '15-minute call · No commitment · Personalized to your agency size and priorities'"}
+  ]}
+]},
+hospice:{title:"Hospice — overview",url:"https://www.shpdata.com/hospice",sections:[
+  {l:"H1 (appears truncated in rendered HTML)",o:"\"A comprehensive QAPI and\" [rest cut off]",r:[
+    {tags:["seo","flow"],t:"Fix the H1 truncation bug. Recommended: <em>\"Hospice Analytics, QAPI &amp; CAHPS Software | SHP for Hospice\"</em>"}
+  ]},
+  {l:"HOPE update announcement",o:"NOW AVAILABLE — HOPE Assessment Support is Now Available in SHP!",r:[
+    {tags:["flow","seo"],t:"Give it an SEO heading: <em>\"HOPE Assessment Ready: What's New in SHP for Hospice\"</em>"},
+    {tags:["mission"],t:"Close with: <em>\"Every update we make is designed to reduce administrative burden so your team can focus on what hospice care is truly about: comfort, dignity, and quality of life for patients and families.\"</em>"}
+  ]},
+  {l:"Lead paragraph",o:"SHP for Hospice is a web-based data analytics solution...",r:[
+    {tags:["mission"],t:"<em>\"Hospice care demands both clinical precision and deep compassion. SHP gives your team the data tools to deliver on both — ensuring quality, compliance, and patient dignity aren't in competition.\"</em>"},
+    {tags:["ai"],t:"Add: <em>\"SHP's AI-powered predictive capabilities help hospice teams identify patterns in visit frequency and patient status that support earlier, more proactive care planning.\"</em>"}
+  ]},
+  {l:"Feature tiles",o:"Performance Improvement / Automated Data Collection / Best-in-Industry Benchmarking / Centralized Reporting",r:[
+    {tags:["seo"],t:"Benchmarking tile: <em>\"SHP's database represents nearly half of all CCNs and surveys in Care Compare CAHPS Hospice.\"</em>"},
+    {tags:["flow"],t:"'Centralized Reporting' combines HEA, HQRP, KPI, CAHPS, HCI, and HVLDL — name these programs explicitly."}
+  ]}
+]},
+hqrp:{title:"Hospice — HQRP / HOPE &amp; QAPI",url:"https://www.shpdata.com/hospice/hospice-item-set-qapi",sections:[
+  {l:"H1",o:"Simple and effective management of multiple reporting requirements",r:[
+    {tags:["seo"],t:"No keyword value. Replace with: <em>\"HQRP, HOPE &amp; QAPI Reporting Software for Hospice | SHP\"</em>"}
+  ]},
+  {l:"Lead paragraph",o:"Tired of searching through multiple sources for data?...",r:[
+    {tags:["mission","flow"],t:"<em>\"Time spent hunting for data is time not spent improving care. SHP consolidates your HQRP, HOPE, and QAPI reporting so your team can focus on what the data is telling you — not on finding it.\"</em>"},
+    {tags:["seo"],t:"Expand HVLDL (Hospice Visits in Last Days of Life) and HCI (Hospice Care Index) on first mention."}
+  ]},
+  {l:"Report descriptions (HQRP Analysis, Patient Detail, Patient Comprehensive)",o:"HQRP Analysis / HQRP Patient Detail / Patient Comprehensive",r:[
+    {tags:["seo","flow"],t:"Add a 'why it matters' sentence to each report description."},
+    {tags:["mission"],t:"At least one report description should close with a patient outcome statement."}
+  ]},
+  {l:"QAPI section",o:"KPI / Hospice Executive Advantage / Potentially Avoidable Events",r:[
+    {tags:["ai"],t:"<em>\"SHP's machine-learning models analyze patterns in hospitalizations, falls, and wounds — helping your QAPI program focus training and process improvements where they'll have the greatest impact.\"</em>"},
+    {tags:["seo"],t:"'Potentially Avoidable Events' is a specific CMS term — make it a dedicated H3, not a sub-bullet."}
+  ]}
+]},
+hospdata:{title:"Hospice — data analytics &amp; benchmarking",url:"https://www.shpdata.com/hospice/data-analytics-benchmarking",sections:[
+  {l:"H1",o:"Experience the power of real-time data and predictive analytics",r:[
+    {tags:["seo"],t:"More specific: <em>\"Hospice Data Analytics &amp; Real-Time Benchmarking Software | SHP\"</em>"},
+    {tags:["ai"],t:"Since 'predictive analytics' is in the H1, the body must deliver on it — add a section explaining what those capabilities actually do."}
+  ]},
+  {l:"Lead paragraph",o:"Our secret to helping you improve quality? Real-time data.",r:[
+    {tags:["mission"],t:"<em>\"We built SHP for Hospice because quality hospice care depends on quality data — and because your team deserves tools that surface insights, not just numbers.\"</em>"},
+    {tags:["ai"],t:"<em>\"Beyond real-time benchmarking, SHP's predictive analytics continuously analyze your patient data to identify trends and risk factors that support proactive care planning decisions.\"</em>"}
+  ]},
+  {l:"Hospice Scorecard section",o:"Identify star performers / Specialize staff education / Build incentive programs / Develop PIPs",r:[
+    {tags:["mission","flow"],t:"Add: <em>\"When clinicians get transparent, data-driven feedback on their performance, they improve — and patients experience better care as a result.\"</em>"},
+    {tags:["seo"],t:"'Performance Improvement Plans (PIPs)' — spell out the acronym on first use."}
+  ]}
+]},
+cahps:{title:"CAHPS hospice survey",url:"https://www.shpdata.com/hospice/cahps-hospice-surveying",sections:[
+  {l:"H1",o:"Proven methodologies and superior implementation to ensure reliable and accurate data collection",r:[
+    {tags:["seo"],t:"No keyword signal. Replace with: <em>\"CAHPS Hospice Survey Administration &amp; Benchmarking | SHP\"</em>"},
+    {tags:["flow"],t:"Use current H1 as a sub-headline below the keyword-optimized H1."}
+  ]},
+  {l:"Web-mail mode announcement",o:"NEW FEATURE — CAHPS Hospice Web-Mail Mode is Now Offered by SHP!",r:[
+    {tags:["seo","flow"],t:"Give it an SEO-structured heading: <em>\"New: CMS-Approved Web-Mail Mode for CAHPS Hospice\"</em>"},
+    {tags:["mission"],t:"<em>\"Families and caregivers are at the center of the hospice experience. Web-mail mode gives them more ways to share their feedback — and gives your team more data to improve the care you provide.\"</em>"}
+  ]},
+  {l:"\"Why SHP?\" four pillars",o:"Extensive Experience / Trusted Execution / Seamless Integration / Unparalleled Support",r:[
+    {tags:["seo"],t:"Make 'since 1996' more prominent: <em>\"30 years administering healthcare surveys\"</em> as a visible stat chip."},
+    {tags:["flow"],t:"'Seamless Integration' is a key differentiator over standalone survey vendors — give this more prominent treatment."}
+  ]},
+  {l:"Sentiment analysis feature",o:"Featuring comment transcription with sentiment analysis...",r:[
+    {tags:["ai"],t:"Reframe: <em>\"SHP's AI-powered sentiment analysis automatically categorizes the emotional tone of written survey responses — turning hundreds of handwritten comments into actionable, quantified insights your team can act on.\"</em>"},
+    {tags:["seo"],t:"Add 'survey sentiment analysis' and 'CAHPS comment analysis' to the section heading and first sentence."}
+  ]},
+  {l:"Star Ratings Preview section",o:"A comprehensive analysis of your projected CAHPS Hospice Star Rating...",r:[
+    {tags:["mission","flow"],t:"Lead with outcome: <em>\"Don't wait for CMS to tell you your star rating — SHP shows you your projected score today, with drill-downs to the specific measures you can improve before public reporting.\"</em>"}
+  ]}
+]},
+shpbest_hosp:{title:"SHPBest™ awards — hospice",url:"https://www.shpdata.com/hospice/shpbest-cahps-hospice",sections:[
+  {l:"Overall page assessment",o:"Page describes the SHPBest™ award program for top-performing hospices on CAHPS Hospice.",r:[
+    {tags:["seo"],t:"Target: <em>\"SHPBest™ Award | Top Hospice CAHPS Performance Recognition\"</em>"},
+    {tags:["mission"],t:"<em>\"SHPBest™ exists because we believe hospice organizations committed to excellence deserve recognition — and because celebrating quality outcomes encourages the entire industry to raise its standard of care.\"</em>"},
+    {tags:["flow"],t:"Make award criteria and eligibility requirements easy to find near the top."}
+  ]}
+]},
+lp_hospice:{title:"Hospice — landing page",url:"https://www.shpdata.com/lp/hospice",lp:true,subtitle:"Demo request page for hospice buyers",sections:[
+  {l:"Hero image / headline — WRONG COPY",o:"Hero says 'Home Health Agencies' — this is the Hospice LP. Likely a copy-paste error.",r:[
+    {tags:["lp","flow"],t:"Critical error: the hero image references Home Health. Update to: <em>\"2,700+ Hospices Trust SHP to Improve Quality &amp; Compliance\"</em>"},
+    {tags:["seo","lp"],t:"The headline should be live H1 text, not embedded in an image."}
+  ]},
+  {l:"Benefit bullet list",o:"Automate quality metrics reporting / Support QAPI requirements / Real-time benchmarks / Improve CAHPS scores / Increase referrals",r:[
+    {tags:["lp","mission"],t:"Add a hospice-specific mission line: <em>\"Hospice care is uniquely mission-driven. SHP helps your team spend less time on reporting — and more time on the care that matters.\"</em>"},
+    {tags:["ai"],t:"Add: <em>\"Leverage AI-powered predictive analytics to identify patterns in patient status that support proactive care planning.\"</em>"},
+    {tags:["lp"],t:"'Increase referrals' feels out of place — reframe: <em>\"Demonstrate quality outcomes that strengthen referral relationships.\"</em>"}
+  ]},
+  {l:"\"Being an SHP customer\" section",o:"40+ software vendors / Customizable dashboards / Highest CAHPS survey response rate",r:[
+    {tags:["lp","seo"],t:"'40+ software vendors' is outdated — update to 60+ to match the rest of the site."},
+    {tags:["lp"],t:"Add: <em>\"A dedicated Customer Manager for personalized onboarding, training, and ongoing support.\"</em>"}
+  ]},
+  {l:"Testimonials (all unattributed)",o:"3 testimonial quotes — none include name, title, or organization.",r:[
+    {tags:["lp"],t:"Add full attribution to each quote. Quote 1 is the strongest — lead with it."},
+    {tags:["lp","mission"],t:"The strongest quote connects data to patient care — lead with this one."}
+  ]},
+  {l:"Form intro copy",o:"Fill out the form below to receive a free demo.",r:[
+    {tags:["lp","flow"],t:"Replace with: <em>\"Tell us about your hospice and we'll show you exactly how SHP can help — a personalized demo, no commitment required.\"</em>"},
+    {tags:["lp"],t:"Add a 'what to expect' note below the CTA button."}
+  ]}
+]},
+snf:{title:"Skilled nursing — overview (IntelliLogix)",url:"https://www.shpdata.com/skilled-nursing",sections:[
+  {l:"H1",o:"A comprehensive performance improvement solution",r:[
+    {tags:["seo"],t:"Replace with: <em>\"IntelliLogix™ | Skilled Nursing MDS Scrubbing &amp; Analytics Software | SHP\"</em>"}
+  ]},
+  {l:"Product intro paragraph",o:"IntelliLogix™ is SHP's web-based MDS scrubbing and data analytics solution...",r:[
+    {tags:["mission","flow"],t:"<em>\"In skilled nursing, data accuracy isn't optional — it shapes your star ratings, your survey outcomes, and ultimately the quality of care your residents receive.\"</em>"},
+    {tags:["ai"],t:"Add: <em>\"IntelliLogix™ includes predictive analytics that help SNF teams identify residents at risk for rehospitalization earlier.\"</em>"}
+  ]},
+  {l:"Solution bullet list",o:"Optimize reimbursement / Improve readmissions / Boost Five Star Ratings / Successfully navigate PDPM and COVID-19 / Be fully prepared for survey",r:[
+    {tags:["flow"],t:"'Successfully navigate PDPM and COVID-19' — COVID-19 is stale. Update to: <em>\"Successfully navigate PDPM and Value-Based Purchasing\"</em>"},
+    {tags:["seo"],t:"'CMS Five Star Quality Rating System' is the searchable program name — spell it out on first use."}
+  ]},
+  {l:"EHR integration section",o:"By partnering with your EHRs through secure interfaces, SHP extracts your facility's MDS data automatically...",r:[
+    {tags:["mission"],t:"<em>\"Catching an MDS error before submission isn't just a billing issue — it's how you ensure your residents' care needs are accurately captured. Every accurate assessment supports a better care plan.\"</em>"}
+  ]}
+]},
+mds:{title:"MDS scrubber",url:"https://www.shpdata.com/skilled-nursing/mds-scrubber",sections:[
+  {l:"H1 (truncated in crawl)",o:"\"Maximize ROI and\" [rest cut off]",r:[
+    {tags:["seo","flow"],t:"Fix the H1 rendering issue. Recommended: <em>\"MDS Scrubber — Maximize SNF Reimbursement &amp; Reduce Errors | IntelliLogix™\"</em>"}
+  ]},
+  {l:"Lead stat",o:"Last year, top 50% of SHP customers increased reimbursement by $78,000+ per facility and saw 16X ROI.",r:[
+    {tags:["flow"],t:"Strongest proof point on the page — buried in bullets. Make it a hero callout above the fold."},
+    {tags:["mission"],t:"After the ROI stat: <em>\"More accurate MDS documentation means care plans that better reflect each resident's actual needs — so the financial benefit and the clinical benefit go hand in hand.\"</em>"}
+  ]},
+  {l:"Feature bullet list",o:"Identify and fix MDS errors / Eliminate manual data entry / Improve IDT collaboration / Ensure optimal care plan / Enhance continuity of care",r:[
+    {tags:["seo"],t:"'IDT collaboration' (Interdisciplinary Team) — spell it out and give it a dedicated sentence."},
+    {tags:["ai"],t:"Consider adding: <em>\"AI-powered alert prioritization flags the errors most likely to impact reimbursement or quality scores.\"</em> (Confirm whether alert logic has a machine-learning component.)"}
+  ]},
+  {l:"Testimonials",o:"Service and reports quotes from Southern LTC / Medical Facilities of America / HCR ManorCare",r:[
+    {tags:["flow","mission"],t:"All testimonials are about service and reports — none mention patient care outcomes. Source or highlight a quote about clinical impact."}
+  ]}
+]},
+starratings:{title:"Star ratings",url:"https://www.shpdata.com/skilled-nursing/star-ratings",sections:[
+  {l:"Overall page assessment",o:"Page covers proactive Five Star Rating management for SNFs.",r:[
+    {tags:["seo"],t:"H1 should target: <em>\"CMS Five Star Quality Rating Management for Skilled Nursing | IntelliLogix™\"</em>"},
+    {tags:["mission"],t:"<em>\"Your star rating is more than a marketing tool — it reflects the quality of care your residents receive every day.\"</em>"},
+    {tags:["ai"],t:"If IntelliLogix forecasts star rating impact: <em>\"See your projected star rating before CMS releases it — and act on the gaps while there's still time.\"</em>"},
+    {tags:["flow"],t:"Ensure a visual shows how SHP reports connect to actionable steps — the identify → act → improve flow."}
+  ]}
+]},
+survey:{title:"Survey preparation",url:"https://www.shpdata.com/skilled-nursing/survey-preparation",sections:[
+  {l:"Overall page assessment",o:"Page covers survey readiness tools and analytics for SNFs.",r:[
+    {tags:["seo"],t:"Target: <em>\"Skilled Nursing Survey Preparation Software | IntelliLogix™ by SHP\"</em>"},
+    {tags:["mission"],t:"<em>\"Survey outcomes affect not just your ratings and revenue — they reflect the safety and quality of care your residents experience.\"</em>"},
+    {tags:["flow"],t:"Lead with a clear list of specific tools for survey prep — buyers arrive with a checklist mindset."}
+  ]}
+]},
+pbj:{title:"PBJ manager",url:"https://www.shpdata.com/skilled-nursing/pbj-manager",sections:[
+  {l:"Overall page assessment",o:"Page covers Payroll-Based Journal staffing data submission management for SNFs.",r:[
+    {tags:["seo"],t:"Target: <em>\"PBJ Manager — Payroll-Based Journal Staffing Software for SNFs | IntelliLogix™\"</em>"},
+    {tags:["mission"],t:"<em>\"Accurate staffing data isn't just a CMS requirement — it's a reflection of the resources you're actually deploying for resident care.\"</em>"},
+    {tags:["flow"],t:"Clarify what the tool automates vs. what still requires manual input."}
+  ]}
+]},
+coreq:{title:"CoreQ survey",url:"https://www.shpdata.com/skilled-nursing/coreq-survey",sections:[
+  {l:"Overall page assessment",o:"Page covers CoreQ patient/resident satisfaction survey administration for SNFs.",r:[
+    {tags:["seo"],t:"Target: <em>\"CoreQ Satisfaction Survey Administration for Skilled Nursing | SHP\"</em>"},
+    {tags:["mission"],t:"<em>\"Patient and resident satisfaction isn't a checkbox — it's a signal about the quality of care being delivered.\"</em>"},
+    {tags:["ai"],t:"If SHP applies trend analysis: <em>\"SHP automatically benchmarks your CoreQ scores against national and state comparisons — surfacing the specific care areas where focused improvement will have the greatest resident impact.\"</em>"}
+  ]}
+]},
+casper:{title:"CASPER manager",url:"https://www.shpdata.com/skilled-nursing/casper-manager",sections:[
+  {l:"Overall page assessment",o:"Page covers CASPER data access and management for SNFs.",r:[
+    {tags:["seo"],t:"Target: <em>\"CASPER Manager — CMS Quality Reporting Data for Skilled Nursing | IntelliLogix™\"</em>"},
+    {tags:["mission"],t:"<em>\"CASPER data is some of the most powerful quality intelligence available to SNF teams — but it's only valuable if it's accessible and actionable.\"</em>"},
+    {tags:["flow"],t:"Clarify the difference between viewing CASPER data through IntelliLogix vs. accessing it directly from CMS."}
+  ]}
+]},
+lp_snf:{title:"Skilled nursing — landing page",url:"https://www.shpdata.com/lp/skilled-nursing",lp:true,subtitle:"Demo request page for skilled nursing buyers",sections:[
+  {l:"Hero image / headline",o:"'SNF data analytics to improve clinical, financial, and operational outcomes' — in image only",r:[
+    {tags:["seo","lp"],t:"This headline should be live H1 text: <em>\"Improve SNF Quality, Outcomes &amp; Reimbursement with IntelliLogix™ by SHP\"</em>"}
+  ]},
+  {l:"Benefit bullet list",o:"Optimize reimbursement / Identify at-risk residents / Improve five star ratings / Scrub and submit PBJ data / Conduct CoreQ surveys",r:[
+    {tags:["lp","flow"],t:"Reframe tasks as outcomes: <em>\"Automate PBJ submission and CoreQ surveys — eliminating manual processes and compliance risk.\"</em>"},
+    {tags:["ai"],t:"Expand 'identify at-risk residents': <em>\"Identify at-risk residents using predictive analytics that flag rehospitalization risk before a costly readmission occurs.\"</em>"},
+    {tags:["lp","mission"],t:"Add: <em>\"Because in skilled nursing, accurate data isn't just a compliance requirement — it's the foundation of better resident care.\"</em>"}
+  ]},
+  {l:"ROI infographic",o:"'3x Return on Investment' shown as image/infographic",r:[
+    {tags:["lp","seo"],t:"Use the stronger stat as live text: <em>\"Last year, the top 50% of SHP customers increased reimbursement by $78,000+ per facility on average.\"</em>"},
+    {tags:["lp"],t:"Add context below the ROI figure with the specific dollar amount — more compelling than a generic '3x' graphic."}
+  ]},
+  {l:"Testimonials (all unattributed)",o:"3 testimonial quotes — none include name, title, or organization.",r:[
+    {tags:["lp"],t:"Add full attribution to each quote. Quote 3 ('drill down from corporate to center and even resident levels') is the most compelling — lead with it."},
+    {tags:["lp","mission"],t:"Quote 3 communicates the depth of the tool best. Add attribution and lead with it."}
+  ]},
+  {l:"Form intro copy",o:"Fill out the form below to receive a free demo.",r:[
+    {tags:["lp","flow"],t:"Replace with: <em>\"Tell us about your facility and we'll show you exactly how IntelliLogix™ can help — a personalized demo, no commitment required.\"</em>"},
+    {tags:["lp"],t:"Add a 'what to expect' note: '15-minute call · No commitment · Personalized to your facility size and priorities'"}
+  ]}
+]},
+carestat:{title:"CareStat — overview",url:"https://www.shpdata.com/carestat",sections:[
+  {l:"H1",o:"Improving network collaboration and patient care with real-time, actionable data",r:[
+    {tags:["seo"],t:"Add product name and keywords: <em>\"CareStat® | Post-Acute Network Analytics for Hospitals &amp; ACOs | SHP\"</em>"},
+    {tags:["mission"],t:"Use current H1 as sub-headline."}
+  ]},
+  {l:"Product description",o:"CareStat is SHP's comprehensive post-acute analytics solution that unites acute care providers, ACOs, payers, and physician groups with SNFs and HHAs...",r:[
+    {tags:["mission"],t:"<em>\"Managing transitions across the care continuum is one of healthcare's hardest problems. CareStat exists to make it a data problem — one your team can actually solve, in real time.\"</em>"},
+    {tags:["ai"],t:"<em>\"CareStat's AI-powered Risk of Hospitalization algorithm continuously analyzes OASIS and MDS data from your post-acute partners — surfacing patients most likely to readmit before it happens.\"</em>"}
+  ]},
+  {l:"\"Build a high-performing network\" section",o:"When it comes to managing trends in a numbers-driven industry...",r:[
+    {tags:["flow"],t:"Too vague. Replace with: <em>\"CareStat gives you live visibility into 2, 7, 30, 60, and 90-day rehospitalization rates across your entire post-acute network — drilled down to individual patients and providers.\"</em>"},
+    {tags:["seo"],t:"'Reduce hospital readmissions' and 'post-acute network management' are high-intent search terms — ensure they appear as readable text."}
+  ]},
+  {l:"HonorHealth testimonial",o:"\"CareStat enables us to get down to patient-level data...\"",r:[
+    {tags:["flow","mission"],t:"Strong quote — add a results callout alongside it. Even a general metric like 'reduced 30-day readmissions' anchors the testimonial to measurable impact."}
+  ]}
+]},
+rehospital:{title:"CareStat — managing rehospitalizations",url:"https://www.shpdata.com/carestat/carestat-managing-rehospitalizations",sections:[
+  {l:"H1",o:"Manage readmissions with real-time data from your post-acute network",r:[
+    {tags:["seo"],t:"Add keyword phrase: <em>\"Reduce Hospital Readmissions with CareStat® Post-Acute Analytics | SHP\"</em>"}
+  ]},
+  {l:"Opening pain-point paragraph",o:"Do you have the right data to collaborate with your post-acute network on managing readmissions?",r:[
+    {tags:["mission"],t:"<em>\"Readmissions are both a financial penalty and a signal that a patient didn't get the right care at the right time. CareStat helps your team address both — by giving you the data to intervene earlier.\"</em>"},
+    {tags:["ai"],t:"<em>\"CareStat's AI-powered hospitalization risk scoring identifies patients at high risk of readmission before discharge — so your care coordination team can prioritize outreach and adjust care plans proactively.\"</em>"}
+  ]},
+  {l:"Feature bullet list",o:"Review 2/7/30/60/90-day rates / Gauge by severity / Analyze agency reports / Drill to individual patients / Identify high-risk patients",r:[
+    {tags:["seo","flow"],t:"Elevate the last bullet: <em>\"Flag high-risk patients before readmission occurs using SHP's proprietary risk algorithms, which analyze clinical data patterns across your post-acute network in real time.\"</em>"}
+  ]},
+  {l:"Hospital Readmission Metrics section",o:"Severity of illness scores, days from hospital discharge, and therapy-related readmissions all factor in...",r:[
+    {tags:["ai"],t:"<em>\"SHP's machine-learning models analyze these contributing factors across thousands of patient records to build risk profiles that flag the patients most likely to bounce back.\"</em>"},
+    {tags:["mission"],t:"Close with: <em>\"Every prevented readmission is a patient who stayed well at home or in their post-acute setting — which is exactly where they wanted to be.\"</em>"}
+  ]},
+  {l:"Pamela Foster testimonial",o:"\"CareStat has really shaped our discussions with our home health providers...\"",r:[
+    {tags:["flow"],t:"Great quote — add a results stat if available, or a contextual caption about the size or scope of the network."}
+  ]}
+]},
+network:{title:"CareStat — post-acute network management",url:"https://www.shpdata.com/carestat/carestat-post-acute-network-management",sections:[
+  {l:"Overall page assessment",o:"Page covers tools for hospitals and ACOs to evaluate, manage, and collaborate with their post-acute provider network.",r:[
+    {tags:["seo"],t:"Target: <em>\"Post-Acute Network Management Software for Hospitals &amp; ACOs | CareStat® SHP\"</em>"},
+    {tags:["mission"],t:"<em>\"The quality of post-acute care is only as good as the data shared between providers. CareStat® gives hospitals and ACOs the visibility to hold their post-acute network accountable — and partner with them to improve outcomes.\"</em>"},
+    {tags:["ai"],t:"If CareStat scores or ranks post-acute providers: <em>\"CareStat's analytics surface performance patterns across your network — helping you identify your highest-performing partners and focus collaboration where outcomes lag.\"</em>"},
+    {tags:["flow"],t:"Clearly differentiate this page from the Rehospitalizations sub-page — this page should focus on network evaluation/selection."}
+  ]}
+]},
+lp_carestat:{title:"CareStat — landing page",url:"https://www.shpdata.com/lp/carestat",lp:true,subtitle:"Demo request page for hospital &amp; ACO buyers",sections:[
+  {l:"Opening paragraph",o:"Now more than ever health systems and ACOs are seeking to understand and affect the way their patients receive post-acute care after discharge.",r:[
+    {tags:["lp","flow"],t:"'Now more than ever' is a worn-out opener. Replace with: <em>\"Readmissions cost health systems billions annually — and most are preventable with the right post-acute data. CareStat® gives hospitals and ACOs real-time visibility into what's happening with their patients after discharge.\"</em>"},
+    {tags:["mission"],t:"Add: <em>\"We believe better coordination between acute and post-acute providers leads to better patient outcomes — and CareStat exists to make that coordination data-driven.\"</em>"}
+  ]},
+  {l:"Benefit bullet list",o:"Manage high-quality post-acute provider networks / Improve patient outcomes and rehospitalizations / Manage Patient Care Bundles / Create evidence-based care plans / Compare with uniform metrics / Gain control over financial penalties",r:[
+    {tags:["ai","lp"],t:"Add to rehospitalization bullet: <em>\"Identify patients at high risk of readmission using CareStat's AI-powered Risk of Hospitalization algorithm.\"</em>"},
+    {tags:["lp","flow"],t:"'Manage Patient Care Bundles' is jargon — expand: <em>\"Track and manage bundled payment performance across your post-acute network with unified, comparable metrics.\"</em>"}
+  ]},
+  {l:"Network scale stats — buried at bottom",o:"Close to 5,000 HHAs and 3,000+ SNFs use SHP — mentioned at the bottom of the page.",r:[
+    {tags:["lp","seo"],t:"Move to the top as a credibility anchor: <em>\"Trusted by 5,000+ HHAs and 3,000+ SNFs — your post-acute network is likely already sharing data with SHP.\"</em>"},
+    {tags:["lp"],t:"Reframe the data-sharing consent note positively: <em>\"Data shared only with explicit provider consent — built on a foundation of security and transparency.\"</em>"}
+  ]},
+  {l:"Missing: demo form / CTA",o:"This LP has no visible demo form or prominent CTA — it ends with the 'Why CareStat?' feature strip.",r:[
+    {tags:["lp","flow"],t:"Critical gap: this is the only LP without a demo form. Add a clear CTA section with a form or prominent 'Request a Demo' button — hospital and ACO buyers landing here have no clear next step."},
+    {tags:["lp"],t:"Add testimonial content specific to hospital/ACO buyers close to the CTA — the HonorHealth quote from the main CareStat page would work well here."}
+  ]}
+]},
+infusion:{title:"Home infusion / Other",url:"https://www.shpdata.com/home-infusion-other",sections:[
+  {l:"Overall page assessment",o:"Page covers data analytics, benchmarking, and patient satisfaction surveys for home infusion pharmacies and HME/DME providers.",r:[
+    {tags:["seo"],t:"If this segment is a growth target, the page needs a dedicated H1: <em>\"Home Infusion Analytics &amp; Patient Satisfaction Software | SHP\"</em>"},
+    {tags:["mission"],t:"<em>\"Whether your patients are receiving care at home, in a SNF, or through infusion services, SHP's mission is the same: turn data into the insights that improve their care.\"</em>"},
+    {tags:["flow"],t:"Assess whether this segment warrants a fuller page build-out, or whether the CTA should direct visitors more quickly to request a demo."},
+    {tags:["ai"],t:"If SHP applies benchmarking or trend analysis to infusion patient satisfaction data, mention it — even a sentence connecting survey data to improvement opportunities helps differentiate from standalone survey vendors."}
+  ]}
+]}
+};
+
+// ─── RENDER PAGE ─────────────────────────────────────────────────────────────
+function renderPage(pageId){
+  var p = PAGES[pageId];
+  if(!p) return '';
+  var lpNote = p.lp ? '<div class="lp-note">&#9670; Landing page — conversion-focused, demo form destination</div>' : '';
+  var sub = p.subtitle ? '<div class="page-subtitle">'+p.subtitle+'</div>' : '';
+  var html = '<div class="page-header"><div class="page-title">'+p.title+'</div>'+sub+'<div class="page-url"><a href="'+p.url+'" target="_blank">'+p.url+' ↗</a></div>'+lpNote+'</div>';
+  p.sections.forEach(function(sec, si){
+    var cardCls = p.lp ? 'section-card lp-card' : 'section-card';
+    html += '<div class="'+cardCls+'"><div class="section-label">'+sec.l+'</div><div class="original">'+sec.o+'</div><div class="rec-header">Recommendations</div>';
+    sec.r.forEach(function(rec, ri){
+      var id = recId(pageId, si, ri);
+      var st = getState(id, rec.t);
+      html += renderRec(id, rec, si, ri, st, pageId);
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+function renderRec(id, rec, si, ri, st, pageId){
+  var tagHtml = rec.tags.map(b).join('');
+  var statusCls = st.status !== 'pending' ? ' status-'+st.status : '';
+  var textHtml = st.editing
+    ? '<textarea class="rec-text-edit" id="edit-'+id+'" rows="3">'+stripEm(st.text)+'</textarea>'
+    : '<div class="rec-text">'+st.text+'</div>';
+
+  var actionHtml = '<div class="action-row">';
+  if(st.editing){
+    actionHtml += '<button class="btn btn-save" onclick="saveEdit(\''+id+'\',\''+pageId+'\')">Save</button>';
+    actionHtml += '<button class="btn btn-cancel" onclick="cancelEdit(\''+id+'\',\''+pageId+'\')">Cancel</button>';
+  } else {
+    if(st.status!=='approved') actionHtml += '<button class="btn btn-approve" onclick="setStatus(\''+id+'\',\'approved\',\''+pageId+'\')">&#10003; Approve</button>';
+    actionHtml += '<button class="btn btn-edit" onclick="startEdit(\''+id+'\',\''+pageId+'\')">&#9998; Edit</button>';
+    if(st.status!=='rejected') actionHtml += '<button class="btn btn-reject" onclick="setStatus(\''+id+'\',\'rejected\',\''+pageId+'\')">&#10005; Reject</button>';
+    if(st.status!=='pending') actionHtml += '<button class="btn btn-undo" onclick="setStatus(\''+id+'\',\'pending\',\''+pageId+'\')">&#8617; Undo</button>';
+    if(st.status!=='pending'){
+      var rb = '';
+      if(st.reviewedBy) rb += '<span class="reviewer-tag">'+escapeHtml(st.reviewedBy)+'</span>';
+      if(st.reviewedAt) rb += '<span class="reviewer-time">'+st.reviewedAt+'</span>';
+      actionHtml += '<span class="status-badge '+st.status+'">'+cap(st.status)+rb+'</span>';
+    }
+  }
+  actionHtml += '</div>';
+
+  var assigneeOpts = ['Unassigned'].concat(TEAM).map(function(m){ return '<option value="'+m+'"'+(st.assignee===m?' selected':'')+'>'+m+'</option>'; }).join('');
+  var safeId = id.replace(/[^a-zA-Z0-9_]/g,'_');
+
+  // Render existing comments
+  var commentsHtml = '';
+  if(st.comments && st.comments.length){
+    st.comments.forEach(function(c){
+      var doneCls = c.done ? ' done' : '';
+      var doneLabel = c.done ? 'Mark undone' : 'Mark done';
+      var doneBtnCls = c.done ? 'btn-cm btn-cm-done undone' : 'btn-cm btn-cm-done';
+      if(c.editing){
+        commentsHtml += '<div class="comment-entry'+doneCls+'" id="ce-'+safeId+'-'+c.id+'">'
+          + '<textarea class="comment-body-edit" id="cedit-'+safeId+'-'+c.id+'" rows="2"'
+          + ' onkeydown="handleCommentEditKey(event,\''+id+'\',\''+safeId+'\',\''+c.id+'\',\''+pageId+'\')">'
+          + escapeHtml(c.text)+'</textarea>'
+          + '<div class="comment-actions-row">'
+          + '<button class="btn-cm btn-cm-save" onclick="saveCommentEdit(\''+id+'\',\''+safeId+'\',\''+c.id+'\',\''+pageId+'\')">Save</button>'
+          + '<button class="btn-cm btn-cm-cancel" onclick="cancelCommentEdit(\''+id+'\',\''+c.id+'\',\''+pageId+'\')">Cancel</button>'
+          + '</div></div>';
+      } else {
+        commentsHtml += '<div class="comment-entry'+doneCls+'" id="ce-'+safeId+'-'+c.id+'">'
+          + '<div class="comment-meta">'
+          + (c.author ? '<span class="comment-author">'+escapeHtml(c.author)+'</span>' : '')
+          + (c.time ? '<span class="comment-time">'+c.time+'</span>' : '')
+          + (c.done ? '<span class="comment-done-badge">Done</span>' : '')
+          + '</div>'
+          + '<div class="comment-body">'+escapeHtml(c.text)+'</div>'
+          + '<div class="comment-actions-row">'
+          + '<button class="'+doneBtnCls+'" onclick="toggleCommentDone(\''+id+'\',\''+c.id+'\',\''+pageId+'\')">'+doneLabel+'</button>'
+          + '<button class="btn-cm btn-cm-edit" onclick="startCommentEdit(\''+id+'\',\''+c.id+'\',\''+pageId+'\')">Edit</button>'
+          + '<button class="btn-cm btn-cm-del" onclick="deleteComment(\''+id+'\',\''+c.id+'\',\''+pageId+'\')">Delete</button>'
+          + '</div></div>';
+      }
+    });
+  }
+
+  var metaHtml = '<div class="meta-row">'
+    + '<div class="assignee-wrap"><select class="assignee-select" onchange="setAssignee(\''+id+'\',this.value,\''+pageId+'\')">'+assigneeOpts+'</select></div>'
+    + '<div class="comment-section">'
+    + '<div class="comment-thread">'+commentsHtml+'</div>'
+    + '<div class="comment-composer">'
+    + '<textarea class="comment-composer-input" id="cmnt-'+safeId+'" placeholder="Add a comment..." rows="1"'
+    + ' onkeydown="handleNewCommentKey(event,\''+id+'\',\''+safeId+'\',\''+pageId+'\')"'
+    + ' oninput="resizeCommentBox(this)"></textarea>'
+    + '<button class="btn-comment-post" onclick="postComment(\''+id+'\',\''+safeId+'\',\''+pageId+'\')">Post</button>'
+    + '</div>'
+    + '<div class="comment-hint-text">Enter to post · Shift+Enter for new line</div>'
+    + '</div>'
+    + '</div>';
+
+  return '<div class="rec-item'+statusCls+'" id="rec-'+id+'">'
+    + '<div class="tag-row">'+tagHtml+'</div>'
+    + '<div class="rec-row"><div class="rec-num">'+(ri+1)+'.</div><div style="flex:1">'+textHtml+'</div></div>'
+    + actionHtml + metaHtml + '</div>';
+}
+
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function stripEm(t){ return t.replace(/<\/?em>/g,'').replace(/&amp;/g,'&'); }
+function escapeHtml(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function getRecFromId(id, pageId){
+  var p = PAGES[pageId];
+  var parts = id.split('__');
+  var si = parseInt(parts[1].replace('s',''));
+  var ri = parseInt(parts[2].replace('r',''));
+  return {sec: p.sections[si], rec: p.sections[si].r[ri], si: si, ri: ri};
+}
+
+function nowStamp(){
+  var d = new Date();
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
+function setStatus(id, status, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  st.status = status;
+  st.editing = false;
+  if(status !== 'pending'){
+    st.reviewedBy = currentUser || '';
+    st.reviewedAt = nowStamp();
+  } else {
+    st.reviewedBy = '';
+    st.reviewedAt = '';
+  }
+  pushState();
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+  updateCounts(); updateNavDots();
+}
+
+function startEdit(id, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  st.editing = true;
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+}
+
+function saveEdit(id, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  var val = document.getElementById('edit-'+id).value.trim();
+  if(val) st.text = val;
+  st.editing = false;
+  st.status = 'edited';
+  st.reviewedBy = currentUser || '';
+  st.reviewedAt = nowStamp();
+  pushState();
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+  updateCounts(); updateNavDots();
+}
+
+function cancelEdit(id, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  st.editing = false;
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+}
+
+function setAssignee(id, val, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  st.assignee = val;
+  pushState();
+}
+
+// ─── COMMENT FUNCTIONS ───────────────────────────────────────────────────────
+function resizeCommentBox(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleNewCommentKey(e, id, safeId, pageId){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); postComment(id, safeId, pageId); }
+}
+
+function postComment(id, safeId, pageId){
+  var textarea = document.getElementById('cmnt-'+safeId);
+  if(!textarea) return;
+  var val = textarea.value.trim();
+  if(!val) return;
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  var cid = 'c'+ Date.now();
+  st.comments.push({id:cid, text:val, author:currentUser||'', time:nowStamp(), done:false, editing:false});
+  pushState();
+  textarea.value = '';
+  textarea.style.height = '';
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+}
+
+function toggleCommentDone(id, cid, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  var c = st.comments.find(function(x){ return x.id === cid; });
+  if(c) c.done = !c.done;
+  pushState();
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+}
+
+function deleteComment(id, cid, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  st.comments = st.comments.filter(function(x){ return x.id !== cid; });
+  pushState();
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+}
+
+function startCommentEdit(id, cid, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  st.comments.forEach(function(c){ c.editing = (c.id === cid); });
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+  var safeId = id.replace(/[^a-zA-Z0-9_]/g,'_');
+  var el = document.getElementById('cedit-'+safeId+'-'+cid);
+  if(el){ el.focus(); el.select(); }
+}
+
+function handleCommentEditKey(e, id, safeId, cid, pageId){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); saveCommentEdit(id, safeId, cid, pageId); }
+  if(e.key === 'Escape'){ cancelCommentEdit(id, cid, pageId); }
+}
+
+function saveCommentEdit(id, safeId, cid, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  var el = document.getElementById('cedit-'+safeId+'-'+cid);
+  var val = el ? el.value.trim() : '';
+  var c = st.comments.find(function(x){ return x.id === cid; });
+  if(c && val){ c.text = val; c.editing = false; }
+  else if(c){ c.editing = false; }
+  pushState();
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+}
+
+function cancelCommentEdit(id, cid, pageId){
+  var r = getRecFromId(id, pageId);
+  var st = getState(id, r.rec.t);
+  var c = st.comments.find(function(x){ return x.id === cid; });
+  if(c) c.editing = false;
+  refreshRec(id, r.rec, r.si, r.ri, st, pageId);
+}
+
+function refreshRec(id, rec, si, ri, st, pageId){
+  var el = document.getElementById('rec-'+id);
+  if(el){ var tmp = document.createElement('div'); tmp.innerHTML = renderRec(id, rec, si, ri, st, pageId); el.replaceWith(tmp.firstChild); }
+}
+
+// ─── FILTER ──────────────────────────────────────────────────────────────────
+function filterStatus(status, chip){
+  currentFilter = status;
+  document.querySelectorAll('.stat-chip').forEach(function(c){ c.classList.remove('active'); });
+  chip.classList.add('active');
+  applyFilter();
+}
+
+function applyFilter(){
+  var note = document.getElementById('filter-note');
+  if(currentFilter === 'all'){
+    document.querySelectorAll('.rec-item').forEach(function(el){ el.style.display=''; });
+    note.classList.remove('visible');
+  } else {
+    var count = 0;
+    document.querySelectorAll('.rec-item').forEach(function(el){
+      var show = currentFilter==='pending'
+        ? (!el.classList.contains('status-approved') && !el.classList.contains('status-edited') && !el.classList.contains('status-rejected'))
+        : el.classList.contains('status-'+currentFilter);
+      el.style.display = show ? '' : 'none';
+      if(show) count++;
+    });
+    note.textContent = 'Showing '+count+' '+currentFilter+' item'+(count!==1?'s':'')+' on this page.';
+    note.classList.add('visible');
+  }
+}
+
+// ─── COUNTS ──────────────────────────────────────────────────────────────────
+function updateCounts(){
+  var counts = {pending:0,approved:0,edited:0,rejected:0};
+  var total = 0;
+  Object.keys(PAGES).forEach(function(pid){
+    PAGES[pid].sections.forEach(function(sec, si){
+      sec.r.forEach(function(rec, ri){
+        var id = recId(pid, si, ri);
+        var st = STATE[id] || {status:'pending'};
+        counts[st.status] = (counts[st.status]||0)+1;
+        total++;
+      });
+    });
+  });
+  counts.pending = total - counts.approved - counts.edited - counts.rejected;
+  document.getElementById('cnt-all').textContent = total;
+  document.getElementById('cnt-pending').textContent = counts.pending;
+  document.getElementById('cnt-approved').textContent = counts.approved;
+  document.getElementById('cnt-edited').textContent = counts.edited;
+  document.getElementById('cnt-rejected').textContent = counts.rejected;
+  var reviewed = counts.approved + counts.edited + counts.rejected;
+  var pct = total > 0 ? Math.round(reviewed/total*100) : 0;
+  document.getElementById('progress-label').textContent = pct+'% reviewed';
+  document.getElementById('progress-fill').style.width = pct+'%';
+}
+
+function updateNavDots(){
+  NAV.forEach(function(item){
+    if(!item.id) return;
+    var p = PAGES[item.id]; if(!p) return;
+    var dotEl = document.getElementById('navdots-'+item.id); if(!dotEl) return;
+    var c = {approved:0,edited:0,rejected:0};
+    p.sections.forEach(function(sec,si){ sec.r.forEach(function(rec,ri){ var st=STATE[recId(item.id,si,ri)]||{status:'pending'}; if(st.status!=='pending') c[st.status]=(c[st.status]||0)+1; }); });
+    var html = '';
+    if(c.approved>0) html+='<div class="nav-dot approved" title="'+c.approved+' approved"></div>';
+    if(c.edited>0) html+='<div class="nav-dot edited" title="'+c.edited+' edited"></div>';
+    if(c.rejected>0) html+='<div class="nav-dot rejected" title="'+c.rejected+' rejected"></div>';
+    dotEl.innerHTML = html;
+  });
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────────────────────
+function openExport(){
+  var approved=[],edited=[];
+  Object.keys(PAGES).forEach(function(pid){
+    var p=PAGES[pid];
+    p.sections.forEach(function(sec,si){
+      sec.r.forEach(function(rec,ri){
+        var id=recId(pid,si,ri); var st=STATE[id];
+        if(!st||st.status==='pending'||st.status==='rejected') return;
+        var item={page:p.title,section:sec.l,text:st.text,assignee:st.assignee,comments:st.comments||[],reviewedBy:st.reviewedBy,reviewedAt:st.reviewedAt,status:st.status};
+        if(st.status==='approved') approved.push(item); else edited.push(item);
+      });
+    });
+  });
+  var html='';
+  if(!approved.length && !edited.length){
+    html='<div class="empty-export">No approved or edited items yet. Review recommendations and approve or edit them to build your action list.</div>';
+  } else {
+    [['approved',approved],['edited',edited]].forEach(function(pair){
+      if(!pair[1].length) return;
+      html+='<div class="export-section"><h3 class="'+pair[0]+'">'+(pair[0]==='approved'?'&#10003;':'&#9998;')+' '+cap(pair[0])+' ('+pair[1].length+')</h3>';
+      pair[1].forEach(function(item){
+        var reviewMeta = '';
+        if(item.reviewedBy) reviewMeta += 'Reviewed by: <strong>'+escapeHtml(item.reviewedBy)+'</strong>';
+        if(item.reviewedAt) reviewMeta += ' <span style="color:#a09f9a">· '+item.reviewedAt+'</span>';
+        if(reviewMeta) reviewMeta += ' &nbsp;';
+        var commentsHtml = '';
+        if(item.comments && item.comments.length){
+          var active = item.comments.filter(function(c){ return !c.done; });
+          var done = item.comments.filter(function(c){ return c.done; });
+          if(active.length) commentsHtml += active.map(function(c){
+            return '<br><span class="ei-comment">&#8220;'+escapeHtml(c.text)+'&#8221;'+(c.author?' — '+escapeHtml(c.author):'')+'</span>';
+          }).join('');
+          if(done.length) commentsHtml += done.map(function(c){
+            return '<br><span class="ei-comment" style="text-decoration:line-through;opacity:.6">&#8220;'+escapeHtml(c.text)+'&#8221; ✓</span>';
+          }).join('');
+        }
+        html+='<div class="export-item"><div class="ei-page">'+item.page+'</div><div class="ei-section">'+item.section+'</div><div class="ei-text">'+item.text+'</div><div class="ei-meta">'
+          +reviewMeta
+          +(item.assignee&&item.assignee!=='Unassigned'?'Assigned to: <strong>'+escapeHtml(item.assignee)+'</strong>':'')
+          +commentsHtml
+          +'</div></div>';
+      });
+      html+='</div>';
+    });
+  }
+  document.getElementById('export-content').innerHTML=html;
+  document.getElementById('modal').style.display='flex';
+}
+
+function closeExport(){ document.getElementById('modal').style.display='none'; }
+
+function copyExport(){
+  var items=[];
+  Object.keys(PAGES).forEach(function(pid){
+    var p=PAGES[pid];
+    p.sections.forEach(function(sec,si){
+      sec.r.forEach(function(rec,ri){
+        var id=recId(pid,si,ri); var st=STATE[id];
+        if(!st||st.status==='pending'||st.status==='rejected') return;
+        var line = '['+st.status.toUpperCase()+'] '+p.title+' — '+sec.l+'\n'+stripEm(st.text);
+        if(st.reviewedBy) line += '\nReviewed by: '+st.reviewedBy+(st.reviewedAt?' ('+st.reviewedAt+')':'');
+        if(st.assignee&&st.assignee!=='Unassigned') line += '\nAssigned to: '+st.assignee;
+        if(st.comments && st.comments.length){
+          st.comments.forEach(function(c){
+            line += '\nComment'+(c.author?' ('+c.author+')':'')+': '+c.text+(c.done?' [done]':'');
+          });
+        }
+        items.push(line+'\n');
+      });
+    });
+  });
+  if(!items.length){ alert('No approved or edited items yet.'); return; }
+  navigator.clipboard.writeText(items.join('\n')).then(function(){
+    var btn=document.querySelector('.btn-copy'); btn.textContent='Copied!';
+    setTimeout(function(){ btn.textContent='Copy all to clipboard'; },2000);
+  });
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function showPage(pageId, navEl){
+  currentPage = pageId;
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  if(navEl) navEl.classList.add('active');
+  var pc = document.getElementById('page-content');
+  pc.innerHTML = renderPage(pageId);
+  document.getElementById('filter-note').classList.remove('visible');
+  if(currentFilter!=='all') applyFilter();
+  window.scrollTo(0,0);
+}
+
+function buildSidebar(){
+  var sb=document.getElementById('sidebar'); sb.innerHTML='';
+  NAV.forEach(function(item){
+    if(item.group){
+      var d=document.createElement('div'); d.className='nav-group'; d.innerHTML=item.group; sb.appendChild(d);
+    } else {
+      var d=document.createElement('div');
+      var cls='nav-item'+(item.indent?' indent':'')+(item.lp?' lp-item':'');
+      d.className=cls; d.setAttribute('data-id',item.id);
+      d.innerHTML=(item.lp?'&#9670; ':'')+item.label+'<div class="nav-progress" id="navdots-'+item.id+'"></div>';
+      d.onclick=function(){ showPage(this.getAttribute('data-id'),this); };
+      sb.appendChild(d);
+    }
+  });
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+buildSidebar();
+loadIdentity();
+initSync().then(function(){
+  showPage('home', document.querySelector('.nav-item[data-id="home"]'));
+  updateCounts();
+  updateNavDots();
+});
+</script>
+</body>
+</html>
