@@ -61,6 +61,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 .stat-chip.edited.active{background:#185fa5;color:#fff}
 .stat-chip.rejected{background:#fcebeb;color:#a32d2d;border-color:#f7c1c1}
 .stat-chip.rejected.active{background:#a32d2d;color:#fff}
+.stat-chip.done{background:#e8f4fd;color:#0a558c;border-color:#90cdf4}
+.stat-chip.done.active{background:#0a558c;color:#fff;border-color:#0a558c}
 .stat-chip .count{font-size:11px;background:rgba(0,0,0,.1);border-radius:10px;padding:0 6px;line-height:18px}
 .progress-wrap{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;color:#888780}
 .progress-bar{width:120px;height:6px;background:#e2e0d8;border-radius:3px;overflow:hidden}
@@ -80,6 +82,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 .nav-dot.approved{background:#3b6d11}
 .nav-dot.edited{background:#185fa5}
 .nav-dot.rejected{background:#a32d2d}
+.nav-dot.done{background:#0a558c}
 
 /* CONTENT */
 .content{flex:1;padding:1.25rem 1.75rem 3rem;max-width:900px}
@@ -122,6 +125,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 .btn{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;padding:4px 10px;border-radius:6px;cursor:pointer;border:1px solid;font-family:inherit;font-weight:500;transition:all .12s}
 .btn-approve{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
 .btn-approve:hover{background:#3b6d11;color:#fff}
+.btn-done{background:#e8f4fd;color:#0a558c;border-color:#90cdf4}
+.btn-done:hover{background:#0a558c;color:#fff}
+.btn-done.is-done{background:#0a558c;color:#fff;border-color:#0a558c}
+.btn-done.is-done:hover{background:#083f6e}
 .btn-edit{background:#e6f1fb;color:#185fa5;border-color:#b5d4f4}
 .btn-edit:hover{background:#185fa5;color:#fff}
 .btn-reject{background:#fcebeb;color:#a32d2d;border-color:#f7c1c1}
@@ -136,6 +143,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 .status-badge.approved{background:#eaf3de;color:#3b6d11}
 .status-badge.edited{background:#e6f1fb;color:#185fa5}
 .status-badge.rejected{background:#fcebeb;color:#a32d2d}
+.status-badge.done{background:#e8f4fd;color:#0a558c}
+.rec-item.status-done{border-color:#90cdf4;background:#f0f8ff}
+.rec-item.status-done .rec-text{color:#5f5e5a}
 
 /* WHO DID THIS */
 .reviewer-tag{font-size:10.5px;background:rgba(0,0,0,.07);border-radius:4px;padding:1px 5px;margin-left:5px;font-style:normal;font-weight:400}
@@ -208,6 +218,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 .export-section h3{font-size:13px;font-weight:600;padding:.4rem .6rem;border-radius:5px;margin-bottom:.4rem}
 .export-section h3.approved{background:#eaf3de;color:#3b6d11}
 .export-section h3.edited{background:#e6f1fb;color:#185fa5}
+.export-section h3.done{background:#e8f4fd;color:#0a558c}
 .export-item{font-size:12.5px;padding:.5rem .75rem;border-left:3px solid #e2e0d8;margin-bottom:.4rem;background:#f9f8f6;border-radius:0 5px 5px 0}
 .export-item .ei-page{font-size:10.5px;color:#888780;margin-bottom:2px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
 .export-item .ei-section{font-size:11px;color:#6b6a65;margin-bottom:3px}
@@ -281,8 +292,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   <div class="stat-chip approved" onclick="filterStatus('approved',this)">Approved <span class="count" id="cnt-approved">0</span></div>
   <div class="stat-chip edited" onclick="filterStatus('edited',this)">Edited <span class="count" id="cnt-edited">0</span></div>
   <div class="stat-chip rejected" onclick="filterStatus('rejected',this)">Rejected <span class="count" id="cnt-rejected">0</span></div>
+  <div class="stat-chip done" onclick="filterStatus('done',this)">&#10003;&#10003; Done <span class="count" id="cnt-done">0</span></div>
   <div class="progress-wrap">
-    <span id="progress-label">0% reviewed</span>
+    <span id="progress-label">0% complete</span>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
   </div>
 </div>
@@ -1088,7 +1100,7 @@ function renderPage(pageId){
 
 function renderRec(id, rec, si, ri, st, pageId){
   var tagHtml = rec.tags.map(b).join('');
-  var statusCls = st.status !== 'pending' ? ' status-'+st.status : '';
+  var statusCls = (st.status !== 'pending') ? ' status-'+st.status : '';
   var textHtml = st.editing
     ? '<textarea class="rec-text-edit" id="edit-'+id+'" rows="3">'+stripEm(st.text)+'</textarea>'
     : '<div class="rec-text">'+st.text+'</div>';
@@ -1101,6 +1113,14 @@ function renderRec(id, rec, si, ri, st, pageId){
     if(st.status!=='approved') actionHtml += '<button class="btn btn-approve" onclick="setStatus(\''+id+'\',\'approved\',\''+pageId+'\')">&#10003; Approve</button>';
     actionHtml += '<button class="btn btn-edit" onclick="startEdit(\''+id+'\',\''+pageId+'\')">&#9998; Edit</button>';
     if(st.status!=='rejected') actionHtml += '<button class="btn btn-reject" onclick="setStatus(\''+id+'\',\'rejected\',\''+pageId+'\')">&#10005; Reject</button>';
+    // Done button — only shown once approved or edited, toggles on/off
+    if(st.status==='approved'||st.status==='edited'||st.status==='done'){
+      var isDone = st.status==='done';
+      var doneBtnCls = 'btn btn-done'+(isDone?' is-done':'');
+      var doneLabel = isDone ? '&#10003;&#10003; Done!' : '&#10003;&#10003; Mark done';
+      var doneAction = isDone ? 'setStatus(\''+id+'\',\'approved\',\''+pageId+'\')' : 'setStatus(\''+id+'\',\'done\',\''+pageId+'\')';
+      actionHtml += '<button class="'+doneBtnCls+'" onclick="'+doneAction+'">'+doneLabel+'</button>';
+    }
     if(st.status!=='pending') actionHtml += '<button class="btn btn-undo" onclick="setStatus(\''+id+'\',\'pending\',\''+pageId+'\')">&#8617; Undo</button>';
     if(st.status!=='pending'){
       var rb = '';
@@ -1335,9 +1355,15 @@ function applyFilter(){
   } else {
     var count = 0;
     document.querySelectorAll('.rec-item').forEach(function(el){
-      var show = currentFilter==='pending'
-        ? (!el.classList.contains('status-approved') && !el.classList.contains('status-edited') && !el.classList.contains('status-rejected'))
-        : el.classList.contains('status-'+currentFilter);
+      var show;
+      if(currentFilter === 'pending'){
+        show = !el.classList.contains('status-approved')
+            && !el.classList.contains('status-edited')
+            && !el.classList.contains('status-rejected')
+            && !el.classList.contains('status-done');
+      } else {
+        show = el.classList.contains('status-'+currentFilter);
+      }
       el.style.display = show ? '' : 'none';
       if(show) count++;
     });
@@ -1348,7 +1374,7 @@ function applyFilter(){
 
 // ─── COUNTS ──────────────────────────────────────────────────────────────────
 function updateCounts(){
-  var counts = {pending:0,approved:0,edited:0,rejected:0};
+  var counts = {pending:0,approved:0,edited:0,rejected:0,done:0};
   var total = 0;
   Object.keys(PAGES).forEach(function(pid){
     PAGES[pid].sections.forEach(function(sec, si){
@@ -1360,15 +1386,16 @@ function updateCounts(){
       });
     });
   });
-  counts.pending = total - counts.approved - counts.edited - counts.rejected;
+  counts.pending = total - counts.approved - counts.edited - counts.rejected - counts.done;
   document.getElementById('cnt-all').textContent = total;
   document.getElementById('cnt-pending').textContent = counts.pending;
   document.getElementById('cnt-approved').textContent = counts.approved;
   document.getElementById('cnt-edited').textContent = counts.edited;
   document.getElementById('cnt-rejected').textContent = counts.rejected;
-  var reviewed = counts.approved + counts.edited + counts.rejected;
-  var pct = total > 0 ? Math.round(reviewed/total*100) : 0;
-  document.getElementById('progress-label').textContent = pct+'% reviewed';
+  document.getElementById('cnt-done').textContent = counts.done;
+  // Progress = done items out of total (done means change was actually made on the site)
+  var pct = total > 0 ? Math.round(counts.done/total*100) : 0;
+  document.getElementById('progress-label').textContent = pct+'% complete';
   document.getElementById('progress-fill').style.width = pct+'%';
 }
 
@@ -1377,11 +1404,12 @@ function updateNavDots(){
     if(!item.id) return;
     var p = PAGES[item.id]; if(!p) return;
     var dotEl = document.getElementById('navdots-'+item.id); if(!dotEl) return;
-    var c = {approved:0,edited:0,rejected:0};
+    var c = {approved:0,edited:0,rejected:0,done:0};
     p.sections.forEach(function(sec,si){ sec.r.forEach(function(rec,ri){ var st=STATE[recId(item.id,si,ri)]||{status:'pending'}; if(st.status!=='pending') c[st.status]=(c[st.status]||0)+1; }); });
     var html = '';
+    if(c.done>0)     html+='<div class="nav-dot done"     title="'+c.done+' done"></div>';
     if(c.approved>0) html+='<div class="nav-dot approved" title="'+c.approved+' approved"></div>';
-    if(c.edited>0) html+='<div class="nav-dot edited" title="'+c.edited+' edited"></div>';
+    if(c.edited>0)   html+='<div class="nav-dot edited"   title="'+c.edited+' edited"></div>';
     if(c.rejected>0) html+='<div class="nav-dot rejected" title="'+c.rejected+' rejected"></div>';
     dotEl.innerHTML = html;
   });
@@ -1389,7 +1417,7 @@ function updateNavDots(){
 
 // ─── EXPORT ──────────────────────────────────────────────────────────────────
 function openExport(){
-  var approved=[],edited=[];
+  var approved=[],edited=[],done=[];
   Object.keys(PAGES).forEach(function(pid){
     var p=PAGES[pid];
     p.sections.forEach(function(sec,si){
@@ -1397,18 +1425,21 @@ function openExport(){
         var id=recId(pid,si,ri); var st=STATE[id];
         if(!st||st.status==='pending'||st.status==='rejected') return;
         var item={page:p.title,section:sec.l,text:st.text,assignee:st.assignee,comments:st.comments||[],reviewedBy:st.reviewedBy,reviewedAt:st.reviewedAt,status:st.status};
-        if(st.status==='approved') approved.push(item); else edited.push(item);
+        if(st.status==='approved') approved.push(item);
+        else if(st.status==='edited') edited.push(item);
+        else if(st.status==='done') done.push(item);
       });
     });
   });
   var html='';
-  if(!approved.length && !edited.length){
-    html='<div class="empty-export">No approved or edited items yet. Review recommendations and approve or edit them to build your action list.</div>';
+  if(!approved.length && !edited.length && !done.length){
+    html='<div class="empty-export">No reviewed items yet. Approve, edit, or mark items as done to build your action list.</div>';
   } else {
-    [['approved',approved],['edited',edited]].forEach(function(pair){
-      if(!pair[1].length) return;
-      html+='<div class="export-section"><h3 class="'+pair[0]+'">'+(pair[0]==='approved'?'&#10003;':'&#9998;')+' '+cap(pair[0])+' ('+pair[1].length+')</h3>';
-      pair[1].forEach(function(item){
+    [['done','&#10003;&#10003;',done],['approved','&#10003;',approved],['edited','&#9998;',edited]].forEach(function(triple){
+      var status=triple[0], icon=triple[1], list=triple[2];
+      if(!list.length) return;
+      html+='<div class="export-section"><h3 class="'+status+'">'+icon+' '+cap(status)+' ('+list.length+')</h3>';
+      list.forEach(function(item){
         var reviewMeta = '';
         if(item.reviewedBy) reviewMeta += 'Reviewed by: <strong>'+escapeHtml(item.reviewedBy)+'</strong>';
         if(item.reviewedAt) reviewMeta += ' <span style="color:#a09f9a">· '+item.reviewedAt+'</span>';
@@ -1416,19 +1447,11 @@ function openExport(){
         var commentsHtml = '';
         if(item.comments && item.comments.length){
           var active = item.comments.filter(function(c){ return !c.done; });
-          var done = item.comments.filter(function(c){ return c.done; });
-          if(active.length) commentsHtml += active.map(function(c){
-            return '<br><span class="ei-comment">&#8220;'+escapeHtml(c.text)+'&#8221;'+(c.author?' — '+escapeHtml(c.author):'')+'</span>';
-          }).join('');
-          if(done.length) commentsHtml += done.map(function(c){
-            return '<br><span class="ei-comment" style="text-decoration:line-through;opacity:.6">&#8220;'+escapeHtml(c.text)+'&#8221; ✓</span>';
-          }).join('');
+          var doneC  = item.comments.filter(function(c){ return c.done; });
+          if(active.length) commentsHtml += active.map(function(c){ return '<br><span class="ei-comment">&#8220;'+escapeHtml(c.text)+'&#8221;'+(c.author?' — '+escapeHtml(c.author):'')+'</span>'; }).join('');
+          if(doneC.length)  commentsHtml += doneC.map(function(c){  return '<br><span class="ei-comment" style="text-decoration:line-through;opacity:.6">&#8220;'+escapeHtml(c.text)+'&#8221; ✓</span>'; }).join('');
         }
-        html+='<div class="export-item"><div class="ei-page">'+item.page+'</div><div class="ei-section">'+item.section+'</div><div class="ei-text">'+item.text+'</div><div class="ei-meta">'
-          +reviewMeta
-          +(item.assignee&&item.assignee!=='Unassigned'?'Assigned to: <strong>'+escapeHtml(item.assignee)+'</strong>':'')
-          +commentsHtml
-          +'</div></div>';
+        html+='<div class="export-item"><div class="ei-page">'+item.page+'</div><div class="ei-section">'+item.section+'</div><div class="ei-text">'+item.text+'</div><div class="ei-meta">'+reviewMeta+(item.assignee&&item.assignee!=='Unassigned'?'Assigned to: <strong>'+escapeHtml(item.assignee)+'</strong>':'')+commentsHtml+'</div></div>';
       });
       html+='</div>';
     });
@@ -1459,7 +1482,7 @@ function copyExport(){
       });
     });
   });
-  if(!items.length){ alert('No approved or edited items yet.'); return; }
+  if(!items.length){ alert('No reviewed items yet.'); return; }
   navigator.clipboard.writeText(items.join('\n')).then(function(){
     var btn=document.querySelector('.btn-copy'); btn.textContent='Copied!';
     setTimeout(function(){ btn.textContent='Copy all to clipboard'; },2000);
