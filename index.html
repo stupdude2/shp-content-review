@@ -303,8 +303,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   <div class="sidebar" id="sidebar"></div>
   <div class="content" id="content">
     <div class="setup-banner" id="setup-banner">
-      <strong>⚠️ JSONBin not configured — running in local-only mode</strong>
-      To enable live collaboration, open this file in a text editor, find <code>JSONBIN_API_KEY</code> near the top of the script, and replace <code>YOUR_API_KEY_HERE</code> with your key from <a href="https://jsonbin.io" target="_blank">jsonbin.io</a>. Then reload the page.
+      <strong>⚠️ Sync error — running in local-only mode</strong>
+      Could not connect to the shared Supabase workspace. Changes are being saved locally only. Check your network connection and reload to retry.
     </div>
     <div class="filter-note" id="filter-note"></div>
     <div id="page-content"></div>
@@ -323,65 +323,58 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 </div>
 
 <script>
-// ─── CONFIG — PASTE YOUR JSONBIN API KEY BELOW ───────────────────────────────
-var JSONBIN_API_KEY = '$2a$10$hxyg9XVVApA/.Oork0FUKu/qQ9MHLguW2esm6o.nE30xK2rc5Gnru';
-var BIN_ID = ''; // Leave blank — auto-created on first run, then stored in localStorage
+// ─── CONFIG — SUPABASE ───────────────────────────────────────────────────────
+var SUPABASE_URL      = 'https://jhakxqvyakdbinaaegmk.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_7aVezgfmVbz0j_aTfqB_1A_CxhfLz9c';
+var TABLE             = 'review_state';
+var ROW_ID            = 1; // single shared row
 // ─────────────────────────────────────────────────────────────────────────────
 
-var STATE = {};          // shared state object {recId: {status,text,comment,assignee,reviewedBy,reviewedAt}}
+var STATE = {};
 var currentFilter = 'all';
-var currentPage = 'home';
-var currentUser = '';
-var syncInterval = null;
-var lastSyncHash = '';
-var isConfigured = JSONBIN_API_KEY !== 'YOUR_API_KEY_HERE';
+var currentPage   = 'home';
+var currentUser   = '';
+var syncInterval  = null;
+var lastSyncHash  = '';
+var isConfigured  = true;
 
-// ─── JSONBIN API ─────────────────────────────────────────────────────────────
-function getBinId(){
-  var stored = localStorage.getItem('shp_bin_id');
-  if(stored) return stored;
-  return BIN_ID || '';
-}
-function setBinId(id){
-  BIN_ID = id;
-  localStorage.setItem('shp_bin_id', id);
+// ─── SUPABASE API ─────────────────────────────────────────────────────────────
+function sbHeaders(){
+  return {
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'Prefer':        'return=representation'
+  };
 }
 
-async function createBin(){
-  setSyncStatus('syncing','Creating shared workspace...');
-  var resp = await fetch('https://api.jsonbin.io/v3/b', {
-    method:'POST',
-    headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Name':'SHP-Content-Review','X-Bin-Private':'false'},
-    body: JSON.stringify({state:{}, version:1})
-  });
-  var data = await resp.json();
-  if(data.metadata && data.metadata.id){
-    setBinId(data.metadata.id);
-    return data.metadata.id;
+async function sbRead(){
+  var resp = await fetch(
+    SUPABASE_URL + '/rest/v1/' + TABLE + '?id=eq.' + ROW_ID + '&select=data',
+    { headers: sbHeaders() }
+  );
+  if(!resp.ok) throw new Error('Read failed: ' + resp.status);
+  var rows = await resp.json();
+  if(rows && rows.length && rows[0].data){
+    return typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
   }
-  throw new Error('Could not create bin');
+  return null;
 }
 
-async function readBin(){
-  var id = getBinId();
-  if(!id) return null;
-  var resp = await fetch('https://api.jsonbin.io/v3/b/'+id+'/latest', {
-    headers:{'X-Master-Key':JSONBIN_API_KEY}
-  });
-  if(!resp.ok) return null;
-  var data = await resp.json();
-  return data.record || null;
-}
-
-async function writeBin(stateObj){
-  var id = getBinId();
-  if(!id) id = await createBin();
-  var resp = await fetch('https://api.jsonbin.io/v3/b/'+id, {
-    method:'PUT',
-    headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY},
-    body: JSON.stringify({state: stateObj, version:1})
-  });
-  if(!resp.ok) throw new Error('Write failed');
+async function sbWrite(stateObj){
+  // Upsert — creates the row if it doesn't exist, updates it if it does
+  var resp = await fetch(
+    SUPABASE_URL + '/rest/v1/' + TABLE,
+    {
+      method:  'POST',
+      headers: Object.assign({}, sbHeaders(), { 'Prefer': 'resolution=merge-duplicates,return=representation' }),
+      body:    JSON.stringify({ id: ROW_ID, data: JSON.stringify(stateObj) })
+    }
+  );
+  if(!resp.ok){
+    var err = await resp.text();
+    throw new Error('Write failed: ' + resp.status + ' ' + err);
+  }
   return true;
 }
 
@@ -389,35 +382,26 @@ async function writeBin(stateObj){
 function setSyncStatus(status, label){
   var dot = document.getElementById('sync-dot');
   var lbl = document.getElementById('sync-label');
-  dot.className = 'sync-dot '+(status||'');
+  dot.className = 'sync-dot ' + (status || '');
   lbl.textContent = label || '';
 }
 
 async function initSync(){
-  if(!isConfigured){
-    document.getElementById('setup-banner').classList.add('visible');
-    loadLocalFallback();
-    setSyncStatus('error','Local mode — configure JSONBin for live collaboration');
-    document.getElementById('loading').style.display = 'none';
-    return;
-  }
-
   try {
     document.getElementById('loading-text').textContent = 'Loading shared workspace...';
-    setSyncStatus('syncing','Connecting...');
+    setSyncStatus('syncing', 'Connecting...');
 
-    var id = getBinId();
-    if(!id){
-      await createBin();
-    }
-
-    var remote = await readBin();
+    var remote = await sbRead();
     if(remote && remote.state){
       STATE = remote.state;
       lastSyncHash = JSON.stringify(STATE);
+    } else if(remote && !remote.state){
+      // Row exists but has no state key — treat as empty
+      STATE = {};
     }
+    // If null — table row doesn't exist yet, first write will create it
 
-    setSyncStatus('synced','Synced · '+new Date().toLocaleTimeString());
+    setSyncStatus('synced', 'Synced · ' + new Date().toLocaleTimeString());
     document.getElementById('loading').style.display = 'none';
 
     // Poll every 8 seconds for changes from other users
@@ -425,24 +409,23 @@ async function initSync(){
 
   } catch(e){
     console.error('Sync init error:', e);
-    setSyncStatus('error','Sync error — working locally');
+    setSyncStatus('error', 'Sync error — working locally');
     loadLocalFallback();
+    document.getElementById('setup-banner').classList.add('visible');
     document.getElementById('loading').style.display = 'none';
   }
 }
 
 async function pollForChanges(){
-  if(!isConfigured) return;
   try {
-    var remote = await readBin();
-    if(!remote || !remote.state) return;
-    var remoteHash = JSON.stringify(remote.state);
+    var remote = await sbRead();
+    if(!remote) return;
+    var remoteState = remote.state || remote;
+    var remoteHash = JSON.stringify(remoteState);
     if(remoteHash !== lastSyncHash){
-      // Merge: remote wins for keys we haven't locally changed since last sync
-      STATE = remote.state;
+      STATE = remoteState;
       lastSyncHash = remoteHash;
-      setSyncStatus('synced','Updated · '+new Date().toLocaleTimeString());
-      // Re-render current page to show changes
+      setSyncStatus('synced', 'Updated · ' + new Date().toLocaleTimeString());
       var pc = document.getElementById('page-content');
       pc.innerHTML = renderPage(currentPage);
       if(currentFilter !== 'all') applyFilter();
@@ -453,14 +436,15 @@ async function pollForChanges(){
 }
 
 async function pushState(){
-  if(!isConfigured){ saveLocalFallback(); return; }
-  setSyncStatus('syncing','Saving...');
+  setSyncStatus('syncing', 'Saving...');
   try {
-    await writeBin(STATE);
+    await sbWrite({ state: STATE, version: 1 });
     lastSyncHash = JSON.stringify(STATE);
-    setSyncStatus('synced','Saved · '+new Date().toLocaleTimeString());
+    setSyncStatus('synced', 'Saved · ' + new Date().toLocaleTimeString());
+    saveLocalFallback(); // keep local copy as backup
   } catch(e){
-    setSyncStatus('error','Save failed — retrying...');
+    console.error('Push error:', e);
+    setSyncStatus('error', 'Save failed — retrying...');
     setTimeout(pushState, 3000);
   }
 }
